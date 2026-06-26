@@ -59,6 +59,15 @@ export class InvitationsService {
     return invitation;
   }
 
+  async getPendingTokenByEmail(email: string): Promise<{ token: string } | null> {
+    const invitation = await this.prisma.invitation.findFirst({
+      where: { email, status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
+      select: { token: true },
+    });
+    return invitation ?? null;
+  }
+
   async verifyInvitation(token: string): Promise<{ email: string; role: string; companyName: string }> {
     const invitation = await this.prisma.invitation.findUnique({
       where: { token },

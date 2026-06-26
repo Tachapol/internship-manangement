@@ -3,10 +3,10 @@
 import * as React from "react";
 import Link from "next/link";
 import { DashboardShell } from "../../components/layout/dashboard-shell";
-import { usersApi, companiesApi } from "../../lib/api";
+import { usersApi, companiesApi, invitationsApi } from "../../lib/api";
 import type { User, UserRole } from "../../lib/types";
 import { PageHeader, StatusBadge, EmptyState, ErrorState, DataTable, Card } from "../../components/ui/shared";
-import { Users, UserPlus, Search, MoreVertical, Mail, Loader2 } from "lucide-react";
+import { Users, UserPlus, Search, MoreVertical, Mail, Loader2, Link2, Check } from "lucide-react";
 
 const ROLE_COLORS: Record<UserRole, string> = {
   SUPER_ADMIN: "bg-brand/10 text-brand",
@@ -150,6 +150,23 @@ export default function UsersPage() {
   const [meta, setMeta] = React.useState({ total: 0, totalPages: 1 });
   const [openMenu, setOpenMenu] = React.useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = React.useState(false);
+  const [copiedId, setCopiedId] = React.useState<string | null>(null);
+
+  async function handleCopyLink(u: User) {
+    try {
+      const res = await invitationsApi.getLink(u.email);
+      if (!res?.token) {
+        alert("No pending invitation found for this user.");
+        return;
+      }
+      const link = `${window.location.origin}/auth/accept-invitation?token=${res.token}`;
+      await navigator.clipboard.writeText(link);
+      setCopiedId(u.id);
+      setTimeout(() => setCopiedId(null), 2500);
+    } catch {
+      alert("Failed to copy link.");
+    }
+  }
 
   const load = React.useCallback(() => {
     setLoading(true);
@@ -263,8 +280,17 @@ export default function UsersPage() {
                       <MoreVertical className="h-4 w-4" />
                     </button>
                     {openMenu === u.id && (
-                      <div className="absolute right-0 top-8 z-20 bg-white border border-borderGray rounded-xl shadow-lg min-w-[140px] py-1">
+                      <div className="absolute right-0 top-8 z-20 bg-white border border-borderGray rounded-xl shadow-lg min-w-[160px] py-1">
                         <Link href={`/users/${u.id}`} onClick={() => setOpenMenu(null)} className="flex px-3 py-2 text-sm text-text-primary hover:bg-bgInput">View Profile</Link>
+                        {u.status === "PENDING_SETUP" && (
+                          <button
+                            onClick={() => { handleCopyLink(u); setOpenMenu(null); }}
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-brand hover:bg-brand/5 w-full text-left"
+                          >
+                            {copiedId === u.id ? <Check className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
+                            {copiedId === u.id ? "Copied!" : "Copy Invite Link"}
+                          </button>
+                        )}
                         <button onClick={() => { handleDelete(u.id); setOpenMenu(null); }} className="flex px-3 py-2 text-sm text-danger hover:bg-danger/5 w-full text-left">Deactivate</button>
                       </div>
                     )}

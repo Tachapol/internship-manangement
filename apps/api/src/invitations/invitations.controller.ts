@@ -30,6 +30,16 @@ export class InvitationsController {
     return this.invitationsService.verifyInvitation(token);
   }
 
+  @Get('link')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.BD_TEAM)
+  async getLink(@Query('email') email: string) {
+    if (!email) {
+      throw new BadRequestException('Email is required');
+    }
+    return this.invitationsService.getPendingTokenByEmail(email);
+  }
+
   @Post('accept')
   async accept(@Body() acceptInvitationDto: AcceptInvitationDto) {
     return this.invitationsService.acceptInvitation(acceptInvitationDto);

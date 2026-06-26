@@ -156,6 +156,8 @@ export const invitationsApi = {
     request<{ email: string; role: string; companyName: string }>(`/invitations/verify?token=${token}`),
   accept: (data: { token: string; password?: string; name?: string }) =>
     request<{ success: boolean }>("/invitations/accept", { method: "POST", body: JSON.stringify(data) }),
+  getLink: (email: string) =>
+    request<{ token: string } | null>(`/invitations/link?email=${encodeURIComponent(email)}`),
 };
 
 // ─── Teams ────────────────────────────────────────────────────
