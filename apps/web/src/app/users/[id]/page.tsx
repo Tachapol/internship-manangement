@@ -8,6 +8,7 @@ import { usersApi, trainingPlansApi, attendanceApi, leaveRequestsApi } from "../
 import type { User, TrainingPlan, Attendance, LeaveRequest } from "../../../lib/types";
 import { Skeleton, StatusBadge, ErrorState, Card, CardHeader, CardBody, KpiCard } from "../../../components/ui/shared";
 import { ArrowLeft, Mail, Phone, Building2, GraduationCap, CalendarCheck, BookOpen, FileSpreadsheet, CheckCircle2 } from "lucide-react";
+import { formatDate } from "../../../lib/utils";
 
 function ProgressBar({ value }: { value: number }) {
   return (
@@ -187,7 +188,7 @@ export default function StudentDetailPage() {
               {attendance.slice(0, 5).map(a => (
                 <div key={a.id} className="px-4 py-3 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-text-primary">{a.date}</p>
+                    <p className="text-sm font-semibold text-text-primary">{formatDate(a.date)}</p>
                     <p className="text-xs text-text-muted">{a.checkIn ? new Date(a.checkIn).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "—"}</p>
                   </div>
                   <StatusBadge status={a.status} />
@@ -205,7 +206,7 @@ export default function StudentDetailPage() {
                 <div key={l.id} className="px-4 py-3 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-text-primary">{l.type} Leave</p>
-                    <p className="text-xs text-text-muted">{l.startDate} – {l.endDate}</p>
+                    <p className="text-xs text-text-muted">{formatDate(l.startDate)} – {formatDate(l.endDate)}</p>
                   </div>
                   <StatusBadge status={l.status} />
                 </div>

@@ -7,6 +7,7 @@ import { usersApi, companiesApi, invitationsApi } from "../../lib/api";
 import type { User, UserRole } from "../../lib/types";
 import { PageHeader, StatusBadge, EmptyState, ErrorState, DataTable, Card } from "../../components/ui/shared";
 import { Users, UserPlus, Search, MoreVertical, Mail, Loader2, Link2, Check } from "lucide-react";
+import { formatDate } from "../../lib/utils";
 
 const ROLE_COLORS: Record<UserRole, string> = {
   SUPER_ADMIN: "bg-brand/10 text-brand",
@@ -269,7 +270,7 @@ export default function UsersPage() {
                 <td className="px-4 py-3.5 text-sm text-text-muted">{u.company?.name ?? "—"}</td>
                 <td className="px-4 py-3.5 text-sm text-text-muted">{u.mentor?.name ?? "—"}</td>
                 <td className="px-4 py-3.5 text-sm text-text-muted whitespace-nowrap">
-                  {new Date(u.createdAt).toLocaleDateString("en-GB")}
+                  {formatDate(u.createdAt)}
                 </td>
                 <td className="px-4 py-3.5">
                   <div className="relative">

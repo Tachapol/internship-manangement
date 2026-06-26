@@ -7,6 +7,7 @@ import type { TrainingPlan, TrainingPlanModule, Team, TrainingPlanStatus } from 
 import { PageHeader, StatusBadge, EmptyState, ErrorState, Card, CardHeader } from "../../components/ui/shared";
 import { BookOpen, Plus, Search, ExternalLink, FileText, CheckCircle2, MoreVertical, Loader2, X, Trash2, Edit2, Calendar } from "lucide-react";
 import { useAuth } from "../../lib/auth-context";
+import { formatDate } from "../../lib/utils";
 
 function ProgressBar({ value }: { value: number }) {
   return (
@@ -399,7 +400,7 @@ function PlanDetailsModal({ planId, onClose, onRefresh, isMentor, role }: { plan
                           )}
                           {m.dueDate && (
                             <span className="inline-flex items-center gap-1 text-xs text-text-muted bg-bgInput px-2 py-1 rounded-lg">
-                              <Calendar className="h-3.5 w-3.5" /> Due {new Date(m.dueDate).toLocaleDateString("en-GB")}
+                              <Calendar className="h-3.5 w-3.5" /> Due {formatDate(m.dueDate)}
                             </span>
                           )}
                         </div>

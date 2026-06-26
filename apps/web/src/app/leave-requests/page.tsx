@@ -8,6 +8,7 @@ import type { LeaveRequest, LeaveStatus } from "../../lib/types";
 import { PageHeader, StatusBadge, EmptyState, ErrorState, Card, CardHeader, CardBody } from "../../components/ui/shared";
 import { useAuth } from "../../lib/auth-context";
 import { FileSpreadsheet, Plus, Search, CheckCircle, XCircle, Loader2, MoreVertical, Paperclip } from "lucide-react";
+import { formatDate } from "../../lib/utils";
 
 function ReviewModal({ request, onClose, onDone }: {
   request: LeaveRequest; onClose: () => void; onDone: () => void;
@@ -40,7 +41,7 @@ function ReviewModal({ request, onClose, onDone }: {
           <p className="text-sm text-text-muted mt-0.5">{request.student?.name} · {request.type} leave</p>
         </div>
         <div className="bg-bgPage rounded-xl p-4 space-y-1.5 text-sm">
-          <div className="flex justify-between"><span className="text-text-muted">Period</span><span className="font-semibold text-text-primary">{request.startDate} – {request.endDate}</span></div>
+          <div className="flex justify-between"><span className="text-text-muted">Period</span><span className="font-semibold text-text-primary">{formatDate(request.startDate)} – {formatDate(request.endDate)}</span></div>
           <div className="flex justify-between"><span className="text-text-muted">Reason</span><span className="font-semibold text-text-primary max-w-[200px] text-right">{request.reason}</span></div>
         </div>
         <div className="flex gap-2">
@@ -317,7 +318,7 @@ export default function LeaveRequestsPage() {
                           <StatusBadge status={r.type} />
                         </div>
                         <p className="text-xs text-text-muted mt-0.5">
-                          {r.startDate} – {r.endDate} · <span className="text-text-secondary">{r.reason}</span>
+                          {formatDate(r.startDate)} – {formatDate(r.endDate)} · <span className="text-text-secondary">{r.reason}</span>
                         </p>
                         {r.attachmentUrl && (
                           <a href={r.attachmentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-brand hover:underline mt-0.5">

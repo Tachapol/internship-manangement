@@ -8,7 +8,7 @@ import { cn } from "../../lib/utils";
 import {
   LayoutDashboard, Building2, Users, CalendarCheck,
   FileSpreadsheet, BookOpen, Bell, Settings, LogOut,
-  Menu, X, ChevronRight, ShieldCheck, Network
+  Menu, X, ChevronRight, ShieldCheck, Network, HelpCircle, LifeBuoy
 } from "lucide-react";
 import type { UserRole } from "../../lib/types";
 
@@ -29,8 +29,11 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Leave Requests", href: "/leave-requests", icon: FileSpreadsheet, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
   { label: "Training Plans", href: "/training-plans", icon: BookOpen, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
   { label: "Notifications", href: "/notifications", icon: Bell, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
+  { label: "Support", href: "/support", icon: LifeBuoy, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
+  { label: "Support Tickets", href: "/support-tickets", icon: ShieldCheck, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR"] },
   { label: "Audit Logs", href: "/audit-logs", icon: ShieldCheck, roles: ["SUPER_ADMIN"] },
   { label: "Settings", href: "/settings", icon: Settings, roles: ["SUPER_ADMIN"] },
+  { label: "FAQ", href: "/faq", icon: HelpCircle, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
 ];
 
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {

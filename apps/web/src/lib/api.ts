@@ -270,3 +270,78 @@ export const auditLogsApi = {
     return request<import("./types").PaginatedResponse<import("./types").AuditLog>>(`/audit-logs?${q}`);
   },
 };
+
+// ─── Support Tickets ──────────────────────────────────────────
+export const supportTicketsApi = {
+  list: (params?: Record<string, string | number | undefined>) => {
+    const q = new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(params ?? {})
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, String(v)])
+      )
+    ).toString();
+    return request<{ data: SupportTicket[]; meta: PaginatedMeta }>(`/support-tickets?${q}`);
+  },
+  get: (id: string) => request<SupportTicketDetail>(`/support-tickets/${id}`),
+  create: (body: {
+    subject: string;
+    description: string;
+    category?: string;
+    priority?: "LOW" | "MEDIUM" | "HIGH";
+  }) => request<SupportTicketDetail>("/support-tickets", {
+    method: "POST",
+    body: JSON.stringify(body),
+  }),
+  addReply: (id: string, message: string) =>
+    request<SupportTicketReply>(`/support-tickets/${id}/replies`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+  updateStatus: (id: string, status: string) =>
+    request<SupportTicket>(`/support-tickets/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+  assign: (id: string) =>
+    request<SupportTicket>(`/support-tickets/${id}/assign`, { method: "PATCH" }),
+};
+
+// ─── Local types for support tickets (not in shared types yet) ─
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  description: string;
+  status: "OPEN" | "IN_REVIEW" | "RESOLVED" | "CLOSED";
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  category?: string;
+  authorId: string;
+  author: { id: string; name: string; email: string; role: string };
+  assignedToId?: string;
+  assignedTo?: { id: string; name: string; role: string } | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { replies: number };
+}
+
+export interface SupportTicketReply {
+  id: string;
+  message: string;
+  isStaff: boolean;
+  ticketId: string;
+  authorId: string;
+  author: { id: string; name: string; role: string };
+  createdAt: string;
+}
+
+export interface SupportTicketDetail extends SupportTicket {
+  replies: SupportTicketReply[];
+}
+
+interface PaginatedMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}

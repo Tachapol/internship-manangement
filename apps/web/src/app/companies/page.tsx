@@ -7,6 +7,7 @@ import { companiesApi } from "../../lib/api";
 import type { Company } from "../../lib/types";
 import { PageHeader, StatusBadge, EmptyState, ErrorState, DataTable, Card } from "../../components/ui/shared";
 import { Building2, Plus, Search, MoreVertical, ExternalLink, Loader2 } from "lucide-react";
+import { formatDate } from "../../lib/utils";
 
 function CreateCompanyModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const [formData, setFormData] = React.useState({
@@ -178,7 +179,7 @@ export default function CompaniesPage() {
                 <td className="px-4 py-3.5"><StatusBadge status={c.status} /></td>
                 <td className="px-4 py-3.5 text-sm font-semibold text-text-secondary">{c._count?.users ?? "—"}</td>
                 <td className="px-4 py-3.5 text-sm text-text-muted">
-                  {new Date(c.createdAt).toLocaleDateString("en-GB")}
+                  {formatDate(c.createdAt)}
                 </td>
                 <td className="px-4 py-3.5">
                   <div className="relative">

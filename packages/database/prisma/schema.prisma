@@ -100,6 +100,21 @@ enum AuditAction {
   OTHER   // Catch-all for miscellaneous actions
 }
 
+/// Lifecycle state of a support ticket
+enum SupportTicketStatus {
+  OPEN       // Submitted, awaiting staff response
+  IN_REVIEW  // Staff has acknowledged and is working on it
+  RESOLVED   // Issue has been resolved
+  CLOSED     // Ticket closed (no further action)
+}
+
+/// Priority level assigned to a support ticket
+enum SupportTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 // ============================================================
 // MODELS
 // ============================================================
@@ -176,6 +191,9 @@ model User {
   approvedLeaveRequests  LeaveRequest[]  @relation("ApproverLeaveRequests")
   notifications          Notification[]
   actorAuditLogs         AuditLog[]      @relation("ActorAuditLogs")
+  authoredTickets        SupportTicket[] @relation("AuthoredTickets")
+  assignedTickets        SupportTicket[] @relation("AssignedTickets")
+  ticketReplies          SupportTicketReply[] @relation("TicketReplies")
 
   // Timestamps & soft-delete
   createdAt DateTime  @default(now())
@@ -496,4 +514,57 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ------------------------------------------------------------
+// SupportTicket
+// Users submit support requests; admin/mentor staff respond.
+// ------------------------------------------------------------
+model SupportTicket {
+  id           String                @id @default(uuid()) @db.Uuid
+  subject      String
+  description  String
+  status       SupportTicketStatus   @default(OPEN)
+  priority     SupportTicketPriority @default(MEDIUM)
+  category     String?               // e.g. "attendance", "leave", "training", "other"
+
+  // Relations
+  authorId     String  @db.Uuid
+  author       User    @relation("AuthoredTickets", fields: [authorId], references: [id], onDelete: Cascade)
+  assignedToId String? @db.Uuid
+  assignedTo   User?   @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
+  replies      SupportTicketReply[]
+
+  resolvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([authorId])
+  @@index([status])
+  @@index([assignedToId])
+  @@index([deletedAt])
+  @@map("support_tickets")
+}
+
+// ------------------------------------------------------------
+// SupportTicketReply
+// Threaded replies on a support ticket (student or staff).
+// ------------------------------------------------------------
+model SupportTicketReply {
+  id        String        @id @default(uuid()) @db.Uuid
+  message   String
+  isStaff   Boolean       @default(false) // true = admin / mentor reply
+
+  // Relations
+  ticketId  String        @db.Uuid
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String        @db.Uuid
+  author    User          @relation("TicketReplies", fields: [authorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([authorId])
+  @@map("support_ticket_replies")
 }

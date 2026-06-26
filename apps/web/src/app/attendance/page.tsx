@@ -9,6 +9,7 @@ import type { Attendance, AttendanceStatus } from "../../lib/types";
 import { PageHeader, StatusBadge, ErrorState, EmptyState, Card, CardHeader, CardBody, KpiCard } from "../../components/ui/shared";
 import { useAuth } from "../../lib/auth-context";
 import { CalendarCheck, Clock, CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";
+import { formatDate } from "../../lib/utils";
 
 const STATUS_ICON: Record<AttendanceStatus, React.ElementType> = {
   PRESENT: CheckCircle,
@@ -198,7 +199,7 @@ function AttendancePageContent() {
                       <div className="flex items-center gap-3">
                         <Icon className={`h-4 w-4 shrink-0 ${r.status === "PRESENT" ? "text-success" : r.status === "LATE" ? "text-amber-500" : r.status === "ABSENT" ? "text-danger" : "text-buddy"}`} />
                         <div>
-                          <p className="text-sm font-semibold text-text-primary">{r.date}</p>
+                          <p className="text-sm font-semibold text-text-primary">{formatDate(r.date)}</p>
                           <p className="text-xs text-text-muted">
                             {r.user ? `${r.user.name} · ` : ""}
                             {r.checkIn ? `In: ${new Date(r.checkIn).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : "No check-in"}

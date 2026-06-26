@@ -18,19 +18,8 @@ import {
   Plus, ChevronRight, Check, X, Activity, Sparkles, TrendingUp,
   MapPin, Calendar, AlertCircle, ArrowUpRight, CheckSquare
 } from "lucide-react";
+import { formatDate } from "../../lib/utils";
 
-// ─── Format Helpers ───────────────────────────────────────────
-const formatDate = (dateStr: string | Date) => {
-  try {
-    return new Date(dateStr).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  } catch (e) {
-    return String(dateStr);
-  }
-};
 
 const formatTime = (timeStr: string | Date | null) => {
   if (!timeStr) return "--:--";
@@ -451,7 +440,7 @@ function MentorDashboard({ data, onRefresh }: { data: MentorStats; onRefresh: ()
                     <div>
                       <p className="text-xs font-extrabold text-text-primary">{r.studentName}</p>
                       <p className="text-[10px] text-text-muted font-bold mt-0.5 uppercase tracking-wide text-buddy">{r.type} LEAVE</p>
-                      <p className="text-[10px] text-text-muted font-medium mt-0.5">{r.startDate} to {r.endDate}</p>
+                      <p className="text-[10px] text-text-muted font-medium mt-0.5">{formatDate(r.startDate)} to {formatDate(r.endDate)}</p>
                       {r.reason && <p className="text-xs text-text-secondary italic mt-1.5 border-l-2 border-borderGray pl-2 font-medium">"{r.reason}"</p>}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
