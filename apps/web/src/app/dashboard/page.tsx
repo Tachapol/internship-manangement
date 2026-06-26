@@ -508,7 +508,7 @@ function StudentDashboard({ data, onRefresh }: { data: StudentStats; onRefresh: 
       .then((status) => {
         setTodayAttendance(status);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingAttendance(false));
   }, []);
 
@@ -736,8 +736,8 @@ export default function DashboardPage() {
   const greeting = mounted ? (hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening") : "day";
   const dateStr = mounted
     ? new Date().toLocaleDateString("en-GB", {
-        weekday: "long", year: "numeric", month: "long", day: "numeric",
-      })
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
+    })
     : "";
 
   return (

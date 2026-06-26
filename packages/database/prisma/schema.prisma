@@ -1,8 +1,6 @@
-// ============================================================
-// DevPlus Internship Management System — Prisma Schema
-// Database : PostgreSQL
-// Generator: prisma-client-js
-// ============================================================
+generator client {
+  provider = "prisma-client-js"
+}
 
 datasource db {
   provider  = "postgresql"
@@ -10,119 +8,6 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-// ============================================================
-// ENUMS
-// ============================================================
-
-/// System-level roles controlling access permissions
-enum UserRole {
-  SUPER_ADMIN  // Full system access — DevPlus internal staff
-  BD_TEAM      // Business Development — manages company partnerships
-  MENTOR       // Company supervisor — manages assigned students
-  STUDENT      // Intern — primary end-user of the system
-}
-
-/// Lifecycle state of a user account
-enum UserStatus {
-  ACTIVE         // Account fully activated and in use
-  INACTIVE       // Disabled by admin
-  PENDING_SETUP  // Invited but has not completed onboarding
-}
-
-/// State of an email invitation token
-enum InvitationStatus {
-  PENDING   // Awaiting acceptance
-  ACCEPTED  // Invitation used; user created
-  EXPIRED   // TTL elapsed without acceptance
-  REVOKED   // Manually cancelled by issuer
-}
-
-/// Daily attendance outcome for a student
-enum AttendanceStatus {
-  PRESENT   // Checked in on time
-  LATE      // Checked in after the configured cutoff
-  ABSENT    // No check-in recorded
-  ON_LEAVE  // Absent due to an approved leave request
-}
-
-/// Lifecycle of a weekly training-plan entry
-enum TrainingPlanStatus {
-  ACTIVE     // Assigned and in-progress
-  COMPLETED  // Student has finished this week's tasks
-  ARCHIVED   // Hidden from active view (soft-disabled)
-}
-
-/// Category of a leave request
-enum LeaveType {
-  SICK     // Medical absence
-  CASUAL   // Short personal leave
-  ANNUAL   // Planned annual leave
-  OTHER    // Catch-all for other reasons
-}
-
-/// Approval state of a leave request
-enum LeaveStatus {
-  PENDING   // Submitted, awaiting review
-  APPROVED  // Granted by the approver
-  REJECTED  // Denied by the approver
-  CANCELLED // Withdrawn by the student before decision
-}
-
-/// Status of a company partnership
-enum CompanyStatus {
-  ACTIVE    // Actively hosting interns
-  INACTIVE  // Partnership paused or ended
-}
-
-/// Category used to route and display notifications
-enum NotificationType {
-  INFO        // General informational message
-  SUCCESS     // Positive outcome (e.g. leave approved)
-  WARNING     // Cautionary alert (e.g. late check-in)
-  ALERT       // System-level urgent alert
-  ATTENDANCE  // Attendance-specific notification
-  LEAVE       // Leave-request lifecycle notification
-  TRAINING    // Training-plan update notification
-}
-
-/// High-level domain grouping for audit log entries
-enum AuditAction {
-  CREATE  // A new record was created
-  UPDATE  // An existing record was modified
-  DELETE  // A record was soft-deleted or hard-deleted
-  LOGIN   // User authentication event
-  LOGOUT  // User sign-out event
-  EXPORT  // Data was exported from the system
-  OTHER   // Catch-all for miscellaneous actions
-}
-
-/// Lifecycle state of a support ticket
-enum SupportTicketStatus {
-  OPEN       // Submitted, awaiting staff response
-  IN_REVIEW  // Staff has acknowledged and is working on it
-  RESOLVED   // Issue has been resolved
-  CLOSED     // Ticket closed (no further action)
-}
-
-/// Priority level assigned to a support ticket
-enum SupportTicketPriority {
-  LOW
-  MEDIUM
-  HIGH
-}
-
-// ============================================================
-// MODELS
-// ============================================================
-
-// ------------------------------------------------------------
-// Company
-// A partner organisation that hosts interns.
-// ------------------------------------------------------------
 model Company {
   id          String        @id @default(uuid()) @db.Uuid
   name        String
@@ -131,74 +16,51 @@ model Company {
   address     String?
   website     String?
   status      CompanyStatus @default(ACTIVE)
-  domain      String?       @unique  // e.g. "acme.com" — used for auto-matching invites
-
-  // Relations
-  users       User[]
+  domain      String?       @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
   invitations Invitation[]
   teams       Team[]
-
-  // Timestamps & soft-delete
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime? // NULL = active; non-NULL = soft-deleted
+  users       User[]
 
   @@index([status])
   @@index([deletedAt])
   @@map("companies")
 }
 
-// ------------------------------------------------------------
-// User
-// Central identity model. Every actor in the system is a User.
-// MENTOR and STUDENT roles use the self-referential mentorId
-// relationship to express the supervision hierarchy.
-// ------------------------------------------------------------
 model User {
-  id           String     @id @default(uuid()) @db.Uuid
-  email        String     @unique
-  passwordHash String?
-  name         String
-  phone        String?
-  avatarUrl    String?
-  role         UserRole   @default(STUDENT)
-  status       UserStatus @default(PENDING_SETUP)
-
-  // Company membership
-  companyId    String?  @db.Uuid
-  company      Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
-
-  // Team membership
-  teamId       String?  @db.Uuid
-  team         Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
-
-  // Mentor → Student supervision (self-referential)
-  // A STUDENT has one optional MENTOR; a MENTOR has many STUDENTs
-  mentorId     String? @db.Uuid
-  mentor       User?   @relation("MentorStudents", fields: [mentorId], references: [id], onDelete: SetNull)
-  students     User[]  @relation("MentorStudents")
-
-  // Authentication
-  passwordResetTokens PasswordResetToken[]
-  refreshTokens       RefreshToken[]
-  sentInvitations     Invitation[]         @relation("SentInvitations")
-
-  // Feature relations
-  attendances            Attendance[]
-  createdTrainingPlans   TrainingPlan[]  @relation("CreatorTrainingPlans")
-  moduleProgress         StudentModuleProgress[]
-  leaveRequests          LeaveRequest[]  @relation("StudentLeaveRequests")
-  approvedLeaveRequests  LeaveRequest[]  @relation("ApproverLeaveRequests")
-  notifications          Notification[]
-  actorAuditLogs         AuditLog[]      @relation("ActorAuditLogs")
-  authoredTickets        SupportTicket[] @relation("AuthoredTickets")
-  assignedTickets        SupportTicket[] @relation("AssignedTickets")
-  ticketReplies          SupportTicketReply[] @relation("TicketReplies")
-
-  // Timestamps & soft-delete
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime? // NULL = active; non-NULL = soft-deleted
+  id                    String                  @id @default(uuid()) @db.Uuid
+  email                 String                  @unique
+  passwordHash          String?
+  name                  String
+  phone                 String?
+  avatarUrl             String?
+  role                  UserRole                @default(STUDENT)
+  status                UserStatus              @default(PENDING_SETUP)
+  companyId             String?                 @db.Uuid
+  teamId                String?                 @db.Uuid
+  mentorId              String?                 @db.Uuid
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?
+  attendances           Attendance[]
+  actorAuditLogs        AuditLog[]              @relation("ActorAuditLogs")
+  sentInvitations       Invitation[]            @relation("SentInvitations")
+  approvedLeaveRequests LeaveRequest[]          @relation("ApproverLeaveRequests")
+  leaveRequests         LeaveRequest[]          @relation("StudentLeaveRequests")
+  notifications         Notification[]
+  passwordResetTokens   PasswordResetToken[]
+  refreshTokens         RefreshToken[]
+  moduleProgress        StudentModuleProgress[]
+  ticketReplies         SupportTicketReply[]    @relation("TicketReplies")
+  assignedTickets       SupportTicket[]         @relation("AssignedTickets")
+  authoredTickets       SupportTicket[]         @relation("AuthoredTickets")
+  createdTrainingPlans  TrainingPlan[]          @relation("CreatorTrainingPlans")
+  company               Company?                @relation(fields: [companyId], references: [id])
+  mentor                User?                   @relation("MentorStudents", fields: [mentorId], references: [id])
+  students              User[]                  @relation("MentorStudents")
+  team                  Team?                   @relation(fields: [teamId], references: [id])
 
   @@index([companyId])
   @@index([teamId])
@@ -209,10 +71,6 @@ model User {
   @@map("users")
 }
 
-// ------------------------------------------------------------
-// Invitation
-// Email-based onboarding tokens generated by SUPER_ADMIN / BD_TEAM.
-// ------------------------------------------------------------
 model Invitation {
   id          String           @id @default(uuid()) @db.Uuid
   email       String
@@ -220,18 +78,14 @@ model Invitation {
   token       String           @unique
   status      InvitationStatus @default(PENDING)
   expiresAt   DateTime
-
-  // Relations
-  companyId   String  @db.Uuid
-  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  teamId      String? @db.Uuid
-  team        Team?   @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  invitedById String  @db.Uuid
-  invitedBy   User    @relation("SentInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
-
-  // Timestamps
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  companyId   String           @db.Uuid
+  teamId      String?          @db.Uuid
+  invitedById String           @db.Uuid
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  company     Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invitedBy   User             @relation("SentInvitations", fields: [invitedById], references: [id], onDelete: Cascade)
+  team        Team?            @relation(fields: [teamId], references: [id])
 
   @@index([email])
   @@index([companyId])
@@ -241,32 +95,20 @@ model Invitation {
   @@map("invitations")
 }
 
-// ------------------------------------------------------------
-// PasswordResetToken
-// Short-lived token for the forgot-password flow.
-// ------------------------------------------------------------
 model PasswordResetToken {
   id        String    @id @default(uuid()) @db.Uuid
   token     String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-
-  // Relations
-  userId    String @db.Uuid
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Timestamps
-  createdAt DateTime @default(now())
+  userId    String    @db.Uuid
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
   @@map("password_reset_tokens")
 }
 
-// ------------------------------------------------------------
-// RefreshToken
-// Persistent JWT refresh tokens for sliding session support.
-// ------------------------------------------------------------
 model RefreshToken {
   id        String    @id @default(uuid()) @db.Uuid
   token     String    @unique
@@ -274,24 +116,15 @@ model RefreshToken {
   revokedAt DateTime?
   userAgent String?
   ipAddress String?
-
-  // Relations
-  userId    String @db.Uuid
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Timestamps
-  createdAt DateTime @default(now())
+  userId    String    @db.Uuid
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
-// ------------------------------------------------------------
-// Attendance
-// One record per student per working day.
-// Unique constraint on (userId, date) prevents duplicate entries.
-// ------------------------------------------------------------
 model Attendance {
   id               String           @id @default(uuid()) @db.Uuid
   date             DateTime         @db.Date
@@ -302,16 +135,12 @@ model Attendance {
   checkInLocation  String?
   checkOutLocation String?
   status           AttendanceStatus @default(ABSENT)
-  note             String?          // Optional remark by mentor or admin
-
-  // Relations
-  userId           String @db.Uuid
-  user             User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Timestamps & soft-delete
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime? // NULL = active
+  note             String?
+  userId           String           @db.Uuid
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  deletedAt        DateTime?
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
   @@index([date])
@@ -321,98 +150,69 @@ model Attendance {
   @@map("attendances")
 }
 
-// ------------------------------------------------------------
-// Team
-// A subgroup inside a partner Company.
-// ------------------------------------------------------------
 model Team {
   id            String         @id @default(uuid()) @db.Uuid
   name          String
-  
-  // Relations
   companyId     String         @db.Uuid
-  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  users         User[]
-  trainingPlans TrainingPlan[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
   invitations   Invitation[]
-
-  // Timestamps & soft-delete
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime? // NULL = active
+  company       Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  trainingPlans TrainingPlan[]
+  users         User[]
 
   @@index([companyId])
   @@index([deletedAt])
   @@map("teams")
 }
 
-// ------------------------------------------------------------
-// TrainingPlan
-// Structured program containing modules assigned by a MENTOR to a Team.
-// ------------------------------------------------------------
 model TrainingPlan {
-  id           String             @id @default(uuid()) @db.Uuid
-  title        String
-  description  String?
-
-  // Relations
-  teamId       String             @db.Uuid
-  team         Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  createdById  String             @db.Uuid
-  createdBy    User               @relation("CreatorTrainingPlans", fields: [createdById], references: [id], onDelete: Cascade)
-  modules      TrainingPlanModule[]
-
-  // Timestamps & soft-delete
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime? // NULL = active
+  id          String               @id @default(uuid()) @db.Uuid
+  title       String
+  description String?
+  teamId      String               @db.Uuid
+  createdById String               @db.Uuid
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  deletedAt   DateTime?
+  modules     TrainingPlanModule[]
+  createdBy   User                 @relation("CreatorTrainingPlans", fields: [createdById], references: [id], onDelete: Cascade)
+  team        Team                 @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@index([teamId])
   @@index([deletedAt])
   @@map("training_plans")
 }
 
-// ------------------------------------------------------------
-// TrainingPlanModule
-// A specific module/week within a training plan.
-// Supports both PDF uploads (Supabase Storage) and external links.
-// ------------------------------------------------------------
 model TrainingPlanModule {
-  id           String             @id @default(uuid()) @db.Uuid
-  title        String
-  description  String?
-  weekNumber   Int                // e.g. 1, 2, 3 …
-  fileUrl      String?            // Supabase Storage URL for PDF upload
-  externalLink String?            // Optional reference URL
-  dueDate      DateTime?
-
-  // Relations
-  trainingPlanId String           @db.Uuid
-  trainingPlan   TrainingPlan     @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
+  id             String                  @id @default(uuid()) @db.Uuid
+  title          String
+  description    String?
+  weekNumber     Int
+  fileUrl        String?
+  externalLink   String?
+  dueDate        DateTime?
+  trainingPlanId String                  @db.Uuid
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  deletedAt      DateTime?
   progresses     StudentModuleProgress[]
-
-  // Timestamps & soft-delete
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime? // NULL = active
+  trainingPlan   TrainingPlan            @relation(fields: [trainingPlanId], references: [id], onDelete: Cascade)
 
   @@index([trainingPlanId])
   @@index([deletedAt])
   @@map("training_plan_modules")
 }
 
-// ------------------------------------------------------------
-// StudentModuleProgress
-// Completion record of a module per student.
-// ------------------------------------------------------------
 model StudentModuleProgress {
   id          String             @id @default(uuid()) @db.Uuid
   studentId   String             @db.Uuid
-  student     User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
   moduleId    String             @db.Uuid
-  module      TrainingPlanModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   status      TrainingPlanStatus @default(ACTIVE)
   completedAt DateTime?
+  module      TrainingPlanModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  student     User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, moduleId])
   @@index([studentId])
@@ -420,35 +220,24 @@ model StudentModuleProgress {
   @@map("student_module_progress")
 }
 
-// ------------------------------------------------------------
-// LeaveRequest
-// Students submit leave requests; MENTORs / BD_TEAM approve.
-// Tracks the full approval workflow with approver reference and comments.
-// ------------------------------------------------------------
 model LeaveRequest {
   id            String      @id @default(uuid()) @db.Uuid
   type          LeaveType
   startDate     DateTime    @db.Date
   endDate       DateTime    @db.Date
   reason        String
-  attachmentUrl String?     // Supabase Storage — supporting document (medical cert, etc.)
+  attachmentUrl String?
   status        LeaveStatus @default(PENDING)
-  approverNote  String?     // Comment from approver on approval/rejection
-
-  // Timestamps for approval workflow
+  approverNote  String?
   submittedAt   DateTime    @default(now())
-  reviewedAt    DateTime?   // Set when approver takes action
-
-  // Relations
-  studentId    String  @db.Uuid
-  student      User    @relation("StudentLeaveRequests", fields: [studentId], references: [id], onDelete: Cascade)
-  approvedById String? @db.Uuid
-  approvedBy   User?   @relation("ApproverLeaveRequests", fields: [approvedById], references: [id], onDelete: SetNull)
-
-  // Timestamps & soft-delete
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime? // NULL = active
+  reviewedAt    DateTime?
+  studentId     String      @db.Uuid
+  approvedById  String?     @db.Uuid
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+  approvedBy    User?       @relation("ApproverLeaveRequests", fields: [approvedById], references: [id])
+  student       User        @relation("StudentLeaveRequests", fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([studentId])
   @@index([status])
@@ -458,56 +247,37 @@ model LeaveRequest {
   @@map("leave_requests")
 }
 
-// ------------------------------------------------------------
-// Notification
-// In-app notifications dispatched on key system events.
-// read flag supports unread-count queries efficiently.
-// ------------------------------------------------------------
 model Notification {
   id        String           @id @default(uuid()) @db.Uuid
   title     String
   message   String
   type      NotificationType @default(INFO)
   read      Boolean          @default(false)
-  readAt    DateTime?        // Set when the user opens the notification
-  metadata  Json?            // Optional payload — e.g. { entityId, entityType }
-
-  // Relations
-  userId    String @db.Uuid
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Timestamps
-  createdAt DateTime @default(now())
+  readAt    DateTime?
+  metadata  Json?
+  userId    String           @db.Uuid
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([userId, read])   // Fast unread-count query
+  @@index([userId, read])
   @@index([createdAt])
   @@map("notifications")
 }
 
-// ------------------------------------------------------------
-// AuditLog
-// Immutable record of every significant action in the system.
-// actorId is nullable to handle system-initiated events.
-// Records are NEVER soft-deleted — they are append-only.
-// ------------------------------------------------------------
 model AuditLog {
   id         String      @id @default(uuid()) @db.Uuid
   action     AuditAction
-  entityName String      // Model name — e.g. "LeaveRequest", "Attendance"
-  entityId   String      // UUID of the affected record
-  oldValues  Json?       // Snapshot before the change
-  newValues  Json?       // Snapshot after the change
+  entityName String
+  entityId   String
+  oldValues  Json?
+  newValues  Json?
   ipAddress  String?
   userAgent  String?
-  metadata   Json?       // Additional context (e.g. bulk action ids)
-
-  // Relations
-  actorId    String? @db.Uuid
-  actor      User?   @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
-
-  // Timestamp (no updatedAt — logs are immutable)
-  createdAt  DateTime @default(now())
+  metadata   Json?
+  actorId    String?     @db.Uuid
+  createdAt  DateTime    @default(now())
+  actor      User?       @relation("ActorAuditLogs", fields: [actorId], references: [id])
 
   @@index([actorId])
   @@index([entityName, entityId])
@@ -516,29 +286,22 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-// ------------------------------------------------------------
-// SupportTicket
-// Users submit support requests; admin/mentor staff respond.
-// ------------------------------------------------------------
 model SupportTicket {
   id           String                @id @default(uuid()) @db.Uuid
   subject      String
   description  String
   status       SupportTicketStatus   @default(OPEN)
   priority     SupportTicketPriority @default(MEDIUM)
-  category     String?               // e.g. "attendance", "leave", "training", "other"
-
-  // Relations
-  authorId     String  @db.Uuid
-  author       User    @relation("AuthoredTickets", fields: [authorId], references: [id], onDelete: Cascade)
-  assignedToId String? @db.Uuid
-  assignedTo   User?   @relation("AssignedTickets", fields: [assignedToId], references: [id], onDelete: SetNull)
-  replies      SupportTicketReply[]
-
+  category     String?
+  authorId     String                @db.Uuid
+  assignedToId String?               @db.Uuid
   resolvedAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
   deletedAt    DateTime?
+  replies      SupportTicketReply[]
+  assignedTo   User?                 @relation("AssignedTickets", fields: [assignedToId], references: [id])
+  author       User                  @relation("AuthoredTickets", fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([authorId])
   @@index([status])
@@ -547,24 +310,114 @@ model SupportTicket {
   @@map("support_tickets")
 }
 
-// ------------------------------------------------------------
-// SupportTicketReply
-// Threaded replies on a support ticket (student or staff).
-// ------------------------------------------------------------
 model SupportTicketReply {
   id        String        @id @default(uuid()) @db.Uuid
   message   String
-  isStaff   Boolean       @default(false) // true = admin / mentor reply
-
-  // Relations
+  isStaff   Boolean       @default(false)
   ticketId  String        @db.Uuid
-  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   authorId  String        @db.Uuid
+  createdAt DateTime      @default(now())
   author    User          @relation("TicketReplies", fields: [authorId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
   @@index([authorId])
   @@map("support_ticket_replies")
+}
+
+/// System-level roles controlling access permissions
+enum UserRole {
+  SUPER_ADMIN
+  BD_TEAM
+  MENTOR
+  STUDENT
+}
+
+/// Lifecycle state of a user account
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING_SETUP
+}
+
+/// State of an email invitation token
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+/// Daily attendance outcome for a student
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  ON_LEAVE
+}
+
+/// Lifecycle of a weekly training-plan entry
+enum TrainingPlanStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+/// Category of a leave request
+enum LeaveType {
+  SICK
+  CASUAL
+  ANNUAL
+  OTHER
+}
+
+/// Approval state of a leave request
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Status of a company partnership
+enum CompanyStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// Category used to route and display notifications
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ALERT
+  ATTENDANCE
+  LEAVE
+  TRAINING
+}
+
+/// High-level domain grouping for audit log entries
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  OTHER
+}
+
+/// Lifecycle state of a support ticket
+enum SupportTicketStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+/// Priority level assigned to a support ticket
+enum SupportTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
 }
