@@ -150,6 +150,14 @@ export const usersApi = {
     request("/users/invite", { method: "POST", body: JSON.stringify(data) }),
 };
 
+// ─── Invitations ──────────────────────────────────────────────
+export const invitationsApi = {
+  verify: (token: string) =>
+    request<{ email: string; role: string; companyName: string }>(`/invitations/verify?token=${token}`),
+  accept: (data: { token: string; password?: string; name?: string }) =>
+    request<{ success: boolean }>("/invitations/accept", { method: "POST", body: JSON.stringify(data) }),
+};
+
 // ─── Teams ────────────────────────────────────────────────────
 export const teamsApi = {
   list: (params?: Record<string, string | number | undefined>) => {

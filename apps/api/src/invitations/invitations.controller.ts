@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Query, BadRequestException } from '@nestjs/common';
 import { InvitationsService } from './invitations.service';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
@@ -20,6 +20,14 @@ export class InvitationsController {
     @GetUser('id') userId: string,
   ) {
     return this.invitationsService.createInvitation(createInvitationDto, userId);
+  }
+
+  @Get('verify')
+  async verify(@Query('token') token: string) {
+    if (!token) {
+      throw new BadRequestException('Token is required');
+    }
+    return this.invitationsService.verifyInvitation(token);
   }
 
   @Post('accept')

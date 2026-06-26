@@ -59,6 +59,34 @@ export class InvitationsService {
     return invitation;
   }
 
+  async verifyInvitation(token: string): Promise<{ email: string; role: string; companyName: string }> {
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { token },
+      include: { company: true },
+    });
+    if (!invitation) {
+      throw new NotFoundException('Invitation token is invalid');
+    }
+
+    if (invitation.status !== 'PENDING') {
+      throw new BadRequestException(`Invitation has already been ${invitation.status.toLowerCase()}`);
+    }
+
+    if (invitation.expiresAt < new Date()) {
+      await this.prisma.invitation.update({
+        where: { id: invitation.id },
+        data: { status: 'EXPIRED' },
+      });
+      throw new BadRequestException('Invitation token has expired');
+    }
+
+    return {
+      email: invitation.email,
+      role: invitation.role,
+      companyName: invitation.company.name,
+    };
+  }
+
   async acceptInvitation(dto: AcceptInvitationDto): Promise<{ success: boolean }> {
     const invitation = await this.prisma.invitation.findUnique({
       where: { token: dto.token },
@@ -88,12 +116,17 @@ export class InvitationsService {
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
+    const updateData: any = {
+      passwordHash,
+      status: UserStatus.ACTIVE,
+    };
+    if (dto.name && dto.name.trim()) {
+      updateData.name = dto.name.trim();
+    }
+
     await this.prisma.user.update({
       where: { id: user.id },
-      data: {
-        passwordHash,
-        status: UserStatus.ACTIVE,
-      },
+      data: updateData,
     });
 
     await this.prisma.invitation.update({

@@ -20,8 +20,8 @@ export class EmailService {
   }
 
   async sendInvitationEmail(email: string, token: string, companyName: string): Promise<boolean> {
-    const appUrl = this.configService.get<string>('NEXT_PUBLIC_API_URL') || 'http://localhost:3000';
-    const invitationLink = `${appUrl}/accept-invitation?token=${token}`;
+    const appUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const invitationLink = `${appUrl}/auth/accept-invitation?token=${token}`;
     const subject = `You are invited to join ${companyName} on DevPlus`;
     const html = `
       <h1>Welcome to DevPlus!</h1>
@@ -52,8 +52,8 @@ export class EmailService {
   }
 
   async sendPasswordResetEmail(email: string, token: string): Promise<boolean> {
-    const appUrl = this.configService.get<string>('NEXT_PUBLIC_API_URL') || 'http://localhost:3000';
-    const resetLink = `${appUrl}/reset-password?token=${token}`;
+    const appUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3000';
+    const resetLink = `${appUrl}/auth/reset-password?token=${token}`;
     const subject = `Reset Your DevPlus Password`;
     const html = `
       <h1>DevPlus Password Reset</h1>
