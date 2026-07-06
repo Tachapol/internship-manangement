@@ -39,6 +39,7 @@ const NAV_ITEMS: NavItem[] = [
 function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => user && item.roles.includes(user.role)
@@ -98,7 +99,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
             <p className="text-xs text-text-muted truncate">{user?.role?.replace("_", " ")}</p>
           </div>
           <button
-            onClick={logout}
+            onClick={() => setShowLogoutConfirm(true)}
             title="Logout"
             className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
           >
@@ -135,6 +136,39 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
           {sidebarContent}
         </aside>
       </div>
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4 animate-in zoom-in-95 duration-150 border border-borderGray">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 bg-danger/10 text-danger rounded-full flex items-center justify-center mx-auto">
+                <LogOut className="h-6 w-6" />
+              </div>
+              <h3 className="font-bold text-text-primary text-base">Confirm Logout</h3>
+              <p className="text-xs text-text-muted">Are you sure you want to sign out of your account?</p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 h-9 border border-borderGray rounded-lg text-sm font-medium hover:bg-bgInput transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowLogoutConfirm(false);
+                  await logout();
+                }}
+                className="flex-1 h-9 bg-danger hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-all active:scale-[0.98]"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

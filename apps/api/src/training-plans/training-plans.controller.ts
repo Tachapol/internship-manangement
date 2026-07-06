@@ -92,7 +92,9 @@ export class TrainingPlansController {
   @Post('modules')
   @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN)
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 10 * 1024 * 1024 }
+  }))
   @ApiOperation({ summary: 'Add a module to a training plan (Mentor/Admin only)' })
   async createModule(
     @Body() createModuleDto: CreateModuleDto,
@@ -104,7 +106,9 @@ export class TrainingPlansController {
   @Patch('modules/:id')
   @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN)
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 10 * 1024 * 1024 }
+  }))
   @ApiOperation({ summary: 'Update a training plan module (Mentor/Admin only)' })
   async updateModule(
     @Param('id', ParseUUIDPipe) id: string,

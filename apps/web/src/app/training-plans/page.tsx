@@ -154,7 +154,14 @@ function ModuleModal({ planId, module, onClose, onDone }: { planId: string; modu
       formData.append("weekNumber", String(weekNumber));
       if (dueDate) formData.append("dueDate", new Date(dueDate).toISOString());
       if (externalLink) formData.append("externalLink", externalLink);
-      if (file) formData.append("file", file);
+      if (file) {
+        if (file.size > 10 * 1024 * 1024) {
+          setError("File size exceeds the 10MB limit.");
+          setLoading(false);
+          return;
+        }
+        formData.append("file", file);
+      }
 
       if (module) {
         await trainingPlansApi.updateModule(module.id, formData);

@@ -181,64 +181,81 @@ function TeamDetailsModal({ teamId, onClose, onRefresh }: { teamId: string; onCl
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   
-  // Member assignment state
+  // Member assignment state (Draft)
+  const [initialMemberIds, setInitialMemberIds] = React.useState<string[]>([]);
+  const [currentMembers, setCurrentMembers] = React.useState<User[]>([]);
   const [availableUsers, setAvailableUsers] = React.useState<User[]>([]);
-  const [selectedUserId, setSelectedUserId] = React.useState("");
-  const [assigning, setAssigning] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
 
   const loadDetails = React.useCallback(() => {
     setLoading(true);
+    setError("");
     teamsApi
       .get(teamId)
-      .then((res) => {
-        setTeam(res);
+      .then((teamRes) => {
+        setTeam(teamRes);
+        const members = teamRes.users || [];
+        setCurrentMembers(members);
+        setInitialMemberIds(members.map((m: any) => m.id));
+        
         // Load eligible users in the same company who can join this team
-        return usersApi.list({ companyId: res.companyId, limit: 100 });
-      })
-      .then((res) => {
-        // Filter out users who are already in this team
-        const members = team?.users?.map((u) => u.id) || [];
-        const assignable = res.data.filter((u) => u.role !== "SUPER_ADMIN" && !members.includes(u.id));
-        setAvailableUsers(assignable);
-        if (assignable.length > 0) {
-          setSelectedUserId(assignable[0].id);
-        } else {
-          setSelectedUserId("");
-        }
+        return usersApi.list({ companyId: teamRes.companyId, limit: 100 }).then((usersRes) => {
+          const memberIds = members.map((u: any) => u.id);
+          const assignable = usersRes.data.filter((u) => u.role !== "SUPER_ADMIN" && !memberIds.includes(u.id));
+          setAvailableUsers(assignable);
+        });
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [teamId, team?.users]);
+  }, [teamId]);
 
   React.useEffect(() => {
     loadDetails();
-  }, [teamId]);
+  }, [loadDetails]);
 
-  async function handleUnassignUser(userId: string) {
-    if (!confirm("Remove this user from the team?")) return;
-    try {
-      await usersApi.update(userId, { teamId: null });
-      loadDetails();
-      onRefresh();
-    } catch (err: any) {
-      alert(err.message || "Failed to remove user.");
-    }
+  function handleAddMemberLocal(user: User) {
+    setCurrentMembers((prev) => [...prev, user]);
+    setAvailableUsers((prev) => prev.filter((u) => u.id !== user.id));
   }
 
-  async function handleAssignUser(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedUserId) return;
-    setAssigning(true);
+  function handleRemoveMemberLocal(user: User) {
+    setCurrentMembers((prev) => prev.filter((u) => u.id !== user.id));
+    setAvailableUsers((prev) => [user, ...prev]);
+  }
+
+  async function handleSaveChanges() {
+    setSaving(true);
     try {
-      await usersApi.update(selectedUserId, { teamId });
+      const addedUserIds = currentMembers.filter(u => !initialMemberIds.includes(u.id)).map(u => u.id);
+      const removedUserIds = initialMemberIds.filter(id => !currentMembers.some(u => u.id === id));
+
+      await Promise.all([
+        ...addedUserIds.map((id) => usersApi.update(id, { teamId })),
+        ...removedUserIds.map((id) => usersApi.update(id, { teamId: null })),
+      ]);
+
       loadDetails();
       onRefresh();
     } catch (err: any) {
-      alert(err.message || "Failed to add member.");
+      alert(err.message || "Failed to save changes.");
     } finally {
-      setAssigning(false);
+      setSaving(false);
     }
   }
+
+  const filteredAvailableUsers = availableUsers.filter((u) => {
+    const term = searchQuery.toLowerCase();
+    return (
+      u.name.toLowerCase().includes(term) ||
+      u.email.toLowerCase().includes(term) ||
+      u.role.toLowerCase().includes(term)
+    );
+  });
+
+  const hasChanges =
+    currentMembers.length !== initialMemberIds.length ||
+    currentMembers.some((u) => !initialMemberIds.includes(u.id));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -266,70 +283,112 @@ function TeamDetailsModal({ teamId, onClose, onRefresh }: { teamId: string; onCl
         )}
 
         {!loading && team && (
-          <div className="space-y-4 overflow-y-auto pr-1 flex-1">
-            {/* Members Section */}
-            <div>
-              <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Users className="h-3.5 w-3.5 text-text-muted" /> Team Members ({team.users?.length ?? 0})
-              </h4>
-              
-              {team.users?.length === 0 ? (
-                <p className="text-xs text-text-muted py-3 text-center border border-dashed border-borderGray rounded-xl bg-bgPage">
-                  No members assigned to this team yet.
-                </p>
-              ) : (
-                <div className="border border-borderGray rounded-xl divide-y divide-borderGray overflow-hidden">
-                  {team.users?.map((member) => (
-                    <div key={member.id} className="p-3 flex items-center justify-between bg-bgPage/30 hover:bg-bgPage/50">
-                      <div>
-                        <span className="text-sm font-semibold text-text-primary block">{member.name}</span>
-                        <span className="text-xs text-text-muted">{member.email} • {member.role}</span>
+          <>
+            <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+              {/* Members Section */}
+              <div>
+                <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-text-muted" /> Team Members ({currentMembers.length})
+                  {hasChanges && (
+                    <span className="text-[10px] bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-full normal-case">
+                      unsaved changes
+                    </span>
+                  )}
+                </h4>
+                
+                {currentMembers.length === 0 ? (
+                  <p className="text-xs text-text-muted py-3 text-center border border-dashed border-borderGray rounded-xl bg-bgPage">
+                    No members assigned to this team yet.
+                  </p>
+                ) : (
+                  <div className="border border-borderGray rounded-xl divide-y divide-borderGray overflow-hidden">
+                    {currentMembers.map((member) => (
+                      <div key={member.id} className="p-3 flex items-center justify-between bg-bgPage/30 hover:bg-bgPage/50">
+                        <div>
+                          <span className="text-sm font-semibold text-text-primary block">{member.name}</span>
+                          <span className="text-xs text-text-muted">{member.email} • {member.role}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMemberLocal(member)}
+                          title="Remove member (draft)"
+                          className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                        >
+                          <UserMinus className="h-3.5 w-3.5" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleUnassignUser(member.id)}
-                        title="Remove member"
-                        className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
-                      >
-                        <UserMinus className="h-3.5 w-3.5" />
-                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Add Member Section */}
+              <div className="bg-bgPage/40 p-4 border border-borderGray rounded-xl mt-2 flex flex-col gap-3">
+                <h4 className="text-xs font-bold text-text-primary flex items-center gap-1">
+                  <UserPlus className="h-3.5 w-3.5 text-brand" /> Add Member to Team
+                </h4>
+                
+                {availableUsers.length === 0 ? (
+                  <p className="text-xs text-text-muted">No other members available in the company to add.</p>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted" />
+                      <input
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search member by name, email, or role..."
+                        className="w-full h-9 pl-9 pr-3 bg-white border border-borderGray rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+                      />
                     </div>
-                  ))}
-                </div>
-              )}
+                    
+                    <div className="max-h-[180px] overflow-y-auto border border-borderGray rounded-lg divide-y divide-borderGray bg-white">
+                      {filteredAvailableUsers.length === 0 ? (
+                        <p className="text-xs text-text-muted p-3 text-center">No matching members found.</p>
+                      ) : (
+                        filteredAvailableUsers.map((u) => (
+                          <div key={u.id} className="p-2 flex items-center justify-between hover:bg-bgPage/30">
+                            <div className="min-w-0 pr-2">
+                              <span className="text-xs font-semibold text-text-primary block truncate">{u.name}</span>
+                              <span className="text-[10px] text-text-muted block truncate">{u.email} • {u.role}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAddMemberLocal(u)}
+                              className="h-7 px-3 bg-brand hover:bg-brand-hover text-white text-xs font-semibold rounded-md flex items-center gap-1 transition-all shrink-0 active:scale-95"
+                            >
+                              <Plus className="h-3 w-3" />
+                              Add
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Add Member Form */}
-            <div className="bg-bgPage/40 p-4 border border-borderGray rounded-xl mt-2">
-              <h4 className="text-xs font-bold text-text-primary mb-2 flex items-center gap-1">
-                <UserPlus className="h-3.5 w-3.5 text-brand" /> Add Member to Team
-              </h4>
-              {availableUsers.length === 0 ? (
-                <p className="text-xs text-text-muted">No other members available in the company to add.</p>
-              ) : (
-                <form onSubmit={handleAssignUser} className="flex gap-2">
-                  <select
-                    value={selectedUserId}
-                    onChange={(e) => setSelectedUserId(e.target.value)}
-                    className="flex-1 h-9 px-3 bg-white border border-borderGray rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/30"
-                  >
-                    {availableUsers.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.name} ({u.role})
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="submit"
-                    disabled={assigning}
-                    className="h-9 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-semibold rounded-lg flex items-center gap-1 shrink-0 disabled:opacity-60 transition-all"
-                  >
-                    {assigning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                    Add
-                  </button>
-                </form>
-              )}
+            {/* Modal Footer */}
+            <div className="border-t border-borderGray pt-3 flex items-center justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-9 px-4 border border-borderGray rounded-lg text-sm font-medium hover:bg-bgInput transition-colors"
+              >
+                {hasChanges ? "Cancel" : "Close"}
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveChanges}
+                disabled={saving || !hasChanges}
+                className="h-9 px-4 bg-brand hover:bg-brand-hover disabled:bg-borderGray disabled:text-text-muted text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save Changes
+              </button>
             </div>
-          </div>
+          </>
         )}
       </div>
     </div>

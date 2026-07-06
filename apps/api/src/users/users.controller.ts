@@ -116,8 +116,8 @@ export class UsersController {
       throw new NotFoundException('User not found');
     }
 
-    // Permission checks: Admin can update anything. Own profile can update name and phone only.
-    if (currentUser.role !== UserRole.SUPER_ADMIN && currentUser.id !== id) {
+    // Permission checks: Admin and BD_TEAM can update anything. Own profile can update name and phone only.
+    if (currentUser.role !== UserRole.SUPER_ADMIN && currentUser.role !== UserRole.BD_TEAM && currentUser.id !== id) {
       throw new ForbiddenException('You do not have permission to modify this user');
     }
 
@@ -125,8 +125,8 @@ export class UsersController {
     if (currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === UserRole.BD_TEAM || currentUser.role === UserRole.MENTOR) {
       if (body.teamId !== undefined) dataToUpdate.teamId = body.teamId ? body.teamId : null;
     }
-    if (currentUser.role === UserRole.SUPER_ADMIN) {
-      // Admin fields
+    if (currentUser.role === UserRole.SUPER_ADMIN || currentUser.role === UserRole.BD_TEAM) {
+      // Admin/BD fields
       if (body.role) dataToUpdate.role = body.role;
       if (body.status) dataToUpdate.status = body.status;
       if (body.companyId) dataToUpdate.companyId = body.companyId;

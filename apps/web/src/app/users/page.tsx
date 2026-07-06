@@ -8,12 +8,13 @@ import type { User, UserRole } from "../../lib/types";
 import { PageHeader, StatusBadge, EmptyState, ErrorState, DataTable, Card } from "../../components/ui/shared";
 import { Users, UserPlus, Search, MoreVertical, Mail, Loader2, Link2, Check } from "lucide-react";
 import { formatDate } from "../../lib/utils";
+import { useAuth } from "../../lib/auth-context";
 
 const ROLE_COLORS: Record<UserRole, string> = {
-  SUPER_ADMIN: "bg-brand/10 text-brand",
-  BD_TEAM: "bg-buddy/10 text-buddy",
-  MENTOR: "bg-success/10 text-success",
-  STUDENT: "bg-amber-50 text-amber-600",
+  SUPER_ADMIN: "bg-indigo-100 text-indigo-800 border border-indigo-200",
+  BD_TEAM: "bg-blue-100 text-blue-800 border border-blue-200",
+  MENTOR: "bg-sky-100 text-sky-800 border border-sky-200",
+  STUDENT: "bg-slate-100 text-slate-800 border border-slate-200",
 };
 
 function Avatar({ name, size = "sm" }: { name: string; size?: "sm" | "md" }) {
@@ -141,6 +142,7 @@ function InviteUserModal({ onClose, onDone }: { onClose: () => void; onDone: () 
 }
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -283,16 +285,20 @@ export default function UsersPage() {
                     {openMenu === u.id && (
                       <div className="absolute right-0 top-8 z-20 bg-white border border-borderGray rounded-xl shadow-lg min-w-[160px] py-1">
                         <Link href={`/users/${u.id}`} onClick={() => setOpenMenu(null)} className="flex px-3 py-2 text-sm text-text-primary hover:bg-bgInput">View Profile</Link>
-                        {u.status === "PENDING_SETUP" && (
-                          <button
-                            onClick={() => { handleCopyLink(u); setOpenMenu(null); }}
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-brand hover:bg-brand/5 w-full text-left"
-                          >
-                            {copiedId === u.id ? <Check className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
-                            {copiedId === u.id ? "Copied!" : "Copy Invite Link"}
-                          </button>
+                        {currentUser && (currentUser.role === "SUPER_ADMIN" || currentUser.role === "BD_TEAM") && (
+                          <>
+                            {u.status === "PENDING_SETUP" && (
+                              <button
+                                onClick={() => { handleCopyLink(u); setOpenMenu(null); }}
+                                className="flex items-center gap-2 px-3 py-2 text-sm text-brand hover:bg-brand/5 w-full text-left"
+                              >
+                                {copiedId === u.id ? <Check className="h-3.5 w-3.5" /> : <Link2 className="h-3.5 w-3.5" />}
+                                {copiedId === u.id ? "Copied!" : "Copy Invite Link"}
+                              </button>
+                            )}
+                            <button onClick={() => { handleDelete(u.id); setOpenMenu(null); }} className="flex px-3 py-2 text-sm text-danger hover:bg-danger/5 w-full text-left">Deactivate</button>
+                          </>
                         )}
-                        <button onClick={() => { handleDelete(u.id); setOpenMenu(null); }} className="flex px-3 py-2 text-sm text-danger hover:bg-danger/5 w-full text-left">Deactivate</button>
                       </div>
                     )}
                   </div>

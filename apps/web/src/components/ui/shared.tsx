@@ -102,19 +102,19 @@ export function PageHeader({
 
 export function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    ACTIVE: "bg-success/10 text-success border-success/20",
-    INACTIVE: "bg-borderGray text-text-muted border-borderGray",
-    PENDING_SETUP: "bg-brand/10 text-brand border-brand/20",
-    PRESENT: "bg-success/10 text-success border-success/20",
-    LATE: "bg-amber-50 text-amber-600 border-amber-200",
-    ABSENT: "bg-danger/10 text-danger border-danger/20",
-    ON_LEAVE: "bg-buddy/10 text-buddy border-buddy/20",
-    PENDING: "bg-amber-50 text-amber-600 border-amber-200",
-    APPROVED: "bg-success/10 text-success border-success/20",
-    REJECTED: "bg-danger/10 text-danger border-danger/20",
-    CANCELLED: "bg-borderGray text-text-muted border-borderGray",
-    COMPLETED: "bg-success/10 text-success border-success/20",
-    ARCHIVED: "bg-borderGray text-text-muted border-borderGray",
+    ACTIVE: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    INACTIVE: "bg-slate-100 text-slate-700 border-slate-200",
+    PENDING_SETUP: "bg-amber-100 text-amber-800 border-amber-200",
+    PRESENT: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    LATE: "bg-amber-100 text-amber-800 border-amber-200",
+    ABSENT: "bg-rose-100 text-rose-800 border-rose-200",
+    ON_LEAVE: "bg-violet-100 text-violet-800 border-violet-200",
+    PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+    APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    REJECTED: "bg-rose-100 text-rose-800 border-rose-200",
+    CANCELLED: "bg-slate-100 text-slate-700 border-slate-200",
+    COMPLETED: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    ARCHIVED: "bg-slate-100 text-slate-700 border-slate-200",
   };
 
   return (

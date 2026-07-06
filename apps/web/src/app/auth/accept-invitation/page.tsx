@@ -26,6 +26,7 @@ function AcceptInvitationForm() {
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState("");
 
@@ -41,9 +42,6 @@ function AcceptInvitationForm() {
       .verify(token)
       .then((res) => {
         setInviteInfo(res);
-        // Prefill name with email prefix
-        const emailPrefix = res.email.split("@")[0];
-        setName(emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1));
       })
       .catch((err) => {
         setVerifyError(err?.message || "Invalid or expired invitation token.");
@@ -251,7 +249,7 @@ function AcceptInvitationForm() {
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
+                  placeholder="e.g. Thao Le"
                   className="w-full h-11 px-4 pl-11 bg-bgInput border border-borderGray rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all"
                 />
                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted h-4 w-4" />
@@ -292,7 +290,7 @@ function AcceptInvitationForm() {
               <div className="relative">
                 <input
                   id="confirmPassword"
-                  type={showPassword ? "text" : "password"}
+                  type={showConfirmPassword ? "text" : "password"}
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
@@ -300,6 +298,13 @@ function AcceptInvitationForm() {
                   className="w-full h-11 px-4 pl-11 pr-11 bg-bgInput border border-borderGray rounded-lg text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all"
                 />
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted h-4 w-4" />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
@@ -314,7 +319,7 @@ function AcceptInvitationForm() {
                   Creating Account…
                 </>
               ) : (
-                "Join Organisation"
+                "Join Company"
               )}
             </button>
           </form>

@@ -9,6 +9,14 @@ import type { User, TrainingPlan, Attendance, LeaveRequest } from "../../../lib/
 import { Skeleton, StatusBadge, ErrorState, Card, CardHeader, CardBody, KpiCard } from "../../../components/ui/shared";
 import { ArrowLeft, Mail, Phone, Building2, GraduationCap, CalendarCheck, BookOpen, FileSpreadsheet, CheckCircle2 } from "lucide-react";
 import { formatDate } from "../../../lib/utils";
+import { useAuth } from "../../../lib/auth-context";
+
+const ROLE_COLORS: Record<string, string> = {
+  SUPER_ADMIN: "bg-indigo-100 text-indigo-800 border border-indigo-200",
+  BD_TEAM: "bg-blue-100 text-blue-800 border border-blue-200",
+  MENTOR: "bg-sky-100 text-sky-800 border border-sky-200",
+  STUDENT: "bg-slate-100 text-slate-800 border border-slate-200",
+};
 
 function ProgressBar({ value }: { value: number }) {
   return (
@@ -19,6 +27,7 @@ function ProgressBar({ value }: { value: number }) {
 }
 
 export default function StudentDetailPage() {
+  const { user: currentUser } = useAuth();
   const { id } = useParams<{ id: string }>();
   const [user, setUser] = React.useState<User | null>(null);
   const [plans, setPlans] = React.useState<TrainingPlan[]>([]);
@@ -97,13 +106,15 @@ export default function StudentDetailPage() {
                 <h2 className="text-xl font-bold text-text-primary">{user.name}</h2>
                 <div className="flex flex-wrap items-center gap-3 mt-1.5">
                   <StatusBadge status={user.status} />
-                  <span className="text-xs font-semibold text-buddy bg-buddy/10 px-2.5 py-0.5 rounded-full">{user.role}</span>
+                  <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${ROLE_COLORS[user.role] || "bg-bgInput text-text-muted"}`}>{user.role.replace("_", " ")}</span>
                 </div>
               </div>
-              <Link href={`/users/${id}/edit`}
-                className="inline-flex items-center gap-2 h-8 px-3 border border-borderGray text-sm font-medium rounded-lg hover:bg-bgInput transition-colors self-start">
-                Edit Profile
-              </Link>
+               {currentUser && (currentUser.role === "SUPER_ADMIN" || currentUser.role === "BD_TEAM" || currentUser.id === id) && (
+                <Link href={`/users/${id}/edit`}
+                  className="inline-flex items-center gap-2 h-8 px-3 border border-borderGray text-sm font-medium rounded-lg hover:bg-bgInput transition-colors self-start">
+                  Edit Profile
+                </Link>
+              )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
               <div className="flex items-center gap-2 text-sm text-text-muted">

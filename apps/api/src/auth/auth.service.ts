@@ -25,6 +25,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    if (user.status === 'PENDING_SETUP') {
+      throw new UnauthorizedException('Please finish setting up your account first.');
+    }
+
     if (user.status !== 'ACTIVE') {
       throw new UnauthorizedException(`User account is ${user.status.toLowerCase().replace('_', ' ')}`);
     }

@@ -23,12 +23,14 @@ async function request<T>(
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
 
   if (res.status === 401) {
-    if (typeof window !== "undefined") {
+    const isAuthPath = path.startsWith("/auth/") || (typeof window !== "undefined" && window.location.pathname.startsWith("/auth/"));
+    if (typeof window !== "undefined" && !isAuthPath) {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       window.location.href = "/auth/login";
     }
-    throw new Error("Unauthorized");
+    const err = await res.json().catch(() => ({ message: "Unauthorized" }));
+    throw new Error(err.message ?? "Unauthorized");
   }
 
   if (!res.ok) {
@@ -66,10 +68,10 @@ async function request<T>(
   return json as T;
 }
 
-async function upload<T>(path: string, formData: FormData): Promise<T> {
+async function upload<T>(path: string, formData: FormData, method = "POST"): Promise<T> {
   const token = getToken();
   const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
+    method,
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   });
@@ -195,7 +197,7 @@ export const trainingPlansApi = {
   createModule: (formData: FormData) =>
     upload<import("./types").TrainingPlanModule>("/training-plans/modules", formData),
   updateModule: (id: string, formData: FormData) =>
-    upload<import("./types").TrainingPlanModule>(`/training-plans/modules/${id}`, formData),
+    upload<import("./types").TrainingPlanModule>(`/training-plans/modules/${id}`, formData, "PATCH"),
   deleteModule: (id: string) =>
     request(`/training-plans/modules/${id}`, { method: "DELETE" }),
   updateModuleProgress: (moduleId: string, status: import("./types").TrainingPlanStatus) =>

@@ -1,13 +1,15 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
-import { LeaveRequest, LeaveType, LeaveStatus, UserRole } from 'database';
+import { LeaveRequest, LeaveType, LeaveStatus, UserRole, NotificationType } from 'database';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class LeaveRequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createRequest(
@@ -20,7 +22,7 @@ export class LeaveRequestsService {
       attachmentUrl = await this.storageService.uploadFile(file, 'leave-attachments');
     }
 
-    return this.prisma.leaveRequest.create({
+    const request = await this.prisma.leaveRequest.create({
       data: {
         type: data.type,
         startDate: new Date(data.startDate),
@@ -31,6 +33,25 @@ export class LeaveRequestsService {
         status: LeaveStatus.PENDING,
       },
     });
+
+    try {
+      const student = await this.prisma.user.findUnique({
+        where: { id: studentId },
+      });
+      if (student?.mentorId) {
+        await this.notificationsService.createNotification(
+          student.mentorId,
+          'New Leave Request',
+          `${student.name} has submitted a new leave request (${data.type.toLowerCase().replace('_', ' ')}) that needs to be processed.`,
+          NotificationType.LEAVE,
+          { leaveRequestId: request.id },
+        );
+      }
+    } catch (err) {
+      console.error('Failed to send leave request notification to mentor:', err);
+    }
+
+    return request;
   }
 
   async getRequestsList(
