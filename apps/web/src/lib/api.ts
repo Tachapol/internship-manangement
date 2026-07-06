@@ -256,6 +256,8 @@ export const notificationsApi = {
   markRead: (id: string) => request(`/notifications/${id}/read`, { method: "PATCH" }),
   markAllRead: () => request<{ updatedCount: number }>("/notifications/read-all", { method: "PATCH" }),
   delete: (id: string) => request(`/notifications/${id}`, { method: "DELETE" }),
+  broadcast: (data: { title: string; message: string; type?: string }) =>
+    request<{ count: number }>("/notifications/broadcast", { method: "POST", body: JSON.stringify(data) }),
 };
 
 // ─── Dashboard ────────────────────────────────────────────────

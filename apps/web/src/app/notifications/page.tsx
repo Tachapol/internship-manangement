@@ -5,8 +5,9 @@ import { DashboardShell } from "../../components/layout/dashboard-shell";
 import { notificationsApi } from "../../lib/api";
 import type { Notification } from "../../lib/types";
 import { PageHeader, EmptyState, ErrorState, Card } from "../../components/ui/shared";
-import { Bell, CheckCheck, Trash2, Info, CheckCircle, AlertTriangle, AlertCircle, CalendarCheck, FileSpreadsheet, BookOpen } from "lucide-react";
+import { Bell, CheckCheck, Trash2, Info, CheckCircle, AlertTriangle, AlertCircle, CalendarCheck, FileSpreadsheet, BookOpen, Megaphone, Loader2 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useAuth } from "../../lib/auth-context";
 
 const TYPE_CONFIG: Record<string, { icon: React.ElementType; bg: string; color: string }> = {
   INFO:       { icon: Info,          bg: "bg-brand/10",   color: "text-brand" },
@@ -28,6 +29,7 @@ function timeAgo(dateStr: string) {
 }
 
 export default function NotificationsPage() {
+  const { user: currentUser } = useAuth();
   const [notifications, setNotifications] = React.useState<Notification[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -35,6 +37,7 @@ export default function NotificationsPage() {
   const [filter, setFilter] = React.useState<"all" | "unread">("all");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState({ total: 0, totalPages: 1 });
+  const [showBroadcastModal, setShowBroadcastModal] = React.useState(false);
 
   const load = React.useCallback(() => {
     setLoading(true);
@@ -73,12 +76,24 @@ export default function NotificationsPage() {
       <PageHeader
         title="Notifications"
         description="Stay up to date with system events"
-        action={unreadCount > 0 && (
-          <button onClick={markAllRead}
-            className="inline-flex items-center gap-2 h-9 px-4 border border-borderGray bg-white text-sm font-medium rounded-lg hover:bg-bgInput transition-colors">
-            <CheckCheck className="h-4 w-4" /> Mark all read
-          </button>
-        )}
+        action={
+          <div className="flex items-center gap-2">
+            {currentUser?.role === "SUPER_ADMIN" && (
+              <button
+                onClick={() => setShowBroadcastModal(true)}
+                className="inline-flex items-center gap-2 h-9 px-4 bg-brand text-white text-sm font-semibold rounded-lg hover:bg-brand-hover transition-all shadow-sm active:scale-[0.98]"
+              >
+                <Megaphone className="h-4 w-4" /> Broadcast Notice
+              </button>
+            )}
+            {unreadCount > 0 && (
+              <button onClick={markAllRead}
+                className="inline-flex items-center gap-2 h-9 px-4 border border-borderGray bg-white text-sm font-medium rounded-lg hover:bg-bgInput transition-colors">
+                <CheckCheck className="h-4 w-4" /> Mark all read
+              </button>
+            )}
+          </div>
+        }
       />
 
       {/* Filter tabs */}
@@ -166,6 +181,110 @@ export default function NotificationsPage() {
           )}
         </Card>
       )}
+      {showBroadcastModal && (
+        <BroadcastModal
+          onClose={() => setShowBroadcastModal(false)}
+          onDone={load}
+        />
+      )}
     </DashboardShell>
+  );
+}
+
+function BroadcastModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const [title, setTitle] = React.useState("");
+  const [message, setMessage] = React.useState("");
+  const [type, setType] = React.useState("INFO");
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim() || !message.trim()) {
+      setError("Please fill out all fields.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      await notificationsApi.broadcast({
+        title: title.trim(),
+        message: message.trim(),
+        type,
+      });
+      onDone();
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || "Failed to send broadcast.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 border border-borderGray">
+        <div>
+          <h3 className="font-bold text-text-primary text-base">Broadcast Notification</h3>
+          <p className="text-xs text-text-muted mt-0.5">Send a global notification to all users in the system.</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {error && (
+            <div className="bg-danger/8 border border-danger/20 text-danger text-sm rounded-lg px-3 py-2 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+          <div>
+            <label className="text-xs font-semibold text-text-primary block mb-1">Title *</label>
+            <input
+              required
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g. System Maintenance Notice"
+              className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-primary block mb-1">Message *</label>
+            <textarea
+              required
+              rows={3}
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              placeholder="Type your announcement details here..."
+              className="w-full p-3 bg-bgInput border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand resize-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-primary block mb-1">Notification Type</label>
+            <select
+              value={type}
+              onChange={e => setType(e.target.value)}
+              className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/30"
+            >
+              <option value="INFO">Information (Blue)</option>
+              <option value="SUCCESS">Success (Green)</option>
+              <option value="WARNING">Warning (Yellow)</option>
+              <option value="ALERT">Alert (Red)</option>
+            </select>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 h-9 border border-borderGray rounded-lg text-sm font-medium hover:bg-bgInput transition-colors">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 h-9 bg-brand hover:bg-brand-hover text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Send Announcement
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

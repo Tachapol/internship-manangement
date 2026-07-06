@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "../../lib/auth-context";
 import { cn } from "../../lib/utils";
+import { notificationsApi } from "../../lib/api";
 import {
   LayoutDashboard, Building2, Users, CalendarCheck,
   FileSpreadsheet, BookOpen, Bell, Settings, LogOut,
@@ -28,7 +29,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Attendance", href: "/attendance", icon: CalendarCheck, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
   { label: "Leave Requests", href: "/leave-requests", icon: FileSpreadsheet, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
   { label: "Training Plans", href: "/training-plans", icon: BookOpen, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
-  { label: "Notifications", href: "/notifications", icon: Bell, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
   { label: "Support", href: "/support", icon: LifeBuoy, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
   { label: "Support Tickets", href: "/support-tickets", icon: ShieldCheck, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR"] },
   { label: "Audit Logs", href: "/audit-logs", icon: ShieldCheck, roles: ["SUPER_ADMIN"] },
@@ -183,6 +183,47 @@ function Header({
   breadcrumb?: { label: string; href?: string }[];
 }) {
   const { user } = useAuth();
+  const [notifications, setNotifications] = React.useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = React.useState(0);
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = React.useState(false);
+
+  const fetchNotifications = React.useCallback(() => {
+    if (!user) return;
+    notificationsApi
+      .list({ limit: 5 })
+      .then((res) => {
+        setNotifications(res.data || []);
+        setUnreadCount(res.unreadCount || 0);
+      })
+      .catch((err) => {
+        console.error("Failed to fetch notifications:", err);
+      });
+  }, [user]);
+
+  React.useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 15000); // Check every 15s
+    return () => clearInterval(interval);
+  }, [fetchNotifications]);
+
+  const handleMarkAllRead = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await notificationsApi.markAllRead();
+      fetchNotifications();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      await notificationsApi.markRead(id);
+      fetchNotifications();
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
     <header className="h-16 bg-white border-b border-borderGray px-4 md:px-6 flex items-center justify-between sticky top-0 z-10">
@@ -213,14 +254,95 @@ function Header({
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <Link
-          href="/notifications"
-          className="relative p-2 text-text-muted hover:text-text-primary hover:bg-bgInput rounded-lg transition-colors"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand animate-pulse" />
-        </Link>
+      <div className="flex items-center gap-2 relative">
+        {/* Backdrop for click outside */}
+        {showNotificationsDropdown && (
+          <div
+            className="fixed inset-0 z-30"
+            onClick={() => setShowNotificationsDropdown(false)}
+          />
+        )}
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
+            className="relative p-2 text-text-muted hover:text-text-primary hover:bg-bgInput rounded-lg transition-colors flex items-center justify-center focus:outline-none"
+          >
+            <Bell className="h-4 w-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[15px] h-3.5 px-0.5 rounded-full bg-brand text-[8px] font-bold text-white flex items-center justify-center animate-pulse">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {showNotificationsDropdown && (
+            <div className="absolute right-0 mt-2 w-80 bg-white border border-borderGray rounded-2xl shadow-xl z-40 py-2 animate-in fade-in slide-in-from-top-2 duration-150">
+              {/* Dropdown Header */}
+              <div className="px-4 py-2 border-b border-borderGray flex items-center justify-between">
+                <span className="font-bold text-text-primary text-sm">Notifications</span>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="text-xs text-brand hover:underline font-medium"
+                  >
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+
+              {/* Dropdown List */}
+              <div className="max-h-64 overflow-y-auto divide-y divide-borderGray/50">
+                {notifications.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-text-muted text-xs">
+                    No notifications yet.
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        handleMarkRead(n.id);
+                        if (n.metadata?.leaveRequestId) {
+                          setShowNotificationsDropdown(false);
+                        }
+                      }}
+                      className={cn(
+                        "px-4 py-3 hover:bg-bgInput transition-colors cursor-pointer text-left space-y-1",
+                        !n.read ? "bg-brand/5" : ""
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className={cn("text-xs font-semibold text-text-primary", !n.read ? "font-bold text-brand" : "")}>
+                          {n.title}
+                        </p>
+                        {!n.read && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-brand shrink-0 mt-1" />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-text-muted leading-relaxed line-clamp-2">{n.message}</p>
+                      <span className="text-[10px] text-text-muted/80 block mt-1">
+                        {new Date(n.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* View All Footer */}
+              <div className="px-4 py-1.5 border-t border-borderGray text-center">
+                <Link
+                  href="/notifications"
+                  onClick={() => setShowNotificationsDropdown(false)}
+                  className="text-xs text-text-muted hover:text-brand font-medium transition-colors block py-1"
+                >
+                  View all notifications
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
         <div className="h-5 w-px bg-borderGray" />
         <Link href="/settings" className="flex items-center gap-2 p-1.5 hover:bg-bgInput rounded-lg transition-colors">
           <div className="w-7 h-7 rounded-full bg-brand/15 flex items-center justify-center text-brand text-xs font-bold">

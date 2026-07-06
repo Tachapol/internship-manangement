@@ -129,24 +129,47 @@ export class AttendanceService {
     });
   }
 
-  async getMonthlyReport(studentId: string, year: number, month: number) {
+  async getCohortMonthlyReport(
+    actor: { id: string; role: string; companyId?: string },
+    studentId: string | undefined,
+    year: number,
+    month: number,
+  ) {
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59, 999);
 
-    const attendances = await this.prisma.attendance.findMany({
-      where: {
-        userId: studentId,
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
+    const where: any = {
+      date: {
+        gte: startDate,
+        lte: endDate,
       },
+    };
+
+    if (studentId) {
+      where.userId = studentId;
+    } else {
+      if (actor.role === UserRole.STUDENT) {
+        where.userId = actor.id;
+      } else if (actor.role === UserRole.MENTOR) {
+        where.user = {
+          mentorId: actor.id,
+        };
+      } else if (actor.role === UserRole.BD_TEAM) {
+        if (actor.companyId) {
+          where.user = {
+            companyId: actor.companyId,
+          };
+        }
+      }
+    }
+
+    const attendances = await this.prisma.attendance.findMany({
+      where,
     });
 
     const report = {
       year,
       month,
-      studentId,
       present: 0,
       late: 0,
       absent: 0,
@@ -161,7 +184,6 @@ export class AttendanceService {
       else if (record.status === AttendanceStatus.ON_LEAVE) report.onLeave++;
     }
 
-    // Calculate attendanceRate percentage
     const totalDays = report.present + report.late + report.absent + report.onLeave;
     const presentDays = report.present + report.late;
     const attendanceRate = totalDays > 0 ? parseFloat(((presentDays / totalDays) * 100).toFixed(1)) : 100;

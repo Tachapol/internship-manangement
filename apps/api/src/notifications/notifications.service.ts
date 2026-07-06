@@ -114,4 +114,29 @@ export class NotificationsService {
       },
     });
   }
+
+  async broadcast(
+    title: string,
+    message: string,
+    type: NotificationType = NotificationType.INFO,
+  ): Promise<{ count: number }> {
+    const users = await this.prisma.user.findMany({
+      where: { deletedAt: null },
+      select: { id: true },
+    });
+
+    const createPromises = users.map((user) =>
+      this.prisma.notification.create({
+        data: {
+          userId: user.id,
+          title,
+          message,
+          type,
+        },
+      }),
+    );
+
+    await Promise.all(createPromises);
+    return { count: users.length };
+  }
 }

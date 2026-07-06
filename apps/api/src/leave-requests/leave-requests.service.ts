@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
-import { LeaveRequest, LeaveType, LeaveStatus, UserRole, NotificationType } from 'database';
+import { LeaveRequest, LeaveType, LeaveStatus, UserRole, NotificationType, AttendanceStatus } from 'database';
 import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
@@ -171,7 +171,7 @@ export class LeaveRequestsService {
       throw new BadRequestException(`Cannot approve request that is already ${request.status.toLowerCase()}`);
     }
 
-    return this.prisma.leaveRequest.update({
+    const updatedRequest = await this.prisma.leaveRequest.update({
       where: { id },
       data: {
         status: LeaveStatus.APPROVED,
@@ -180,6 +180,43 @@ export class LeaveRequestsService {
         reviewedAt: new Date(),
       },
     });
+
+    try {
+      const start = new Date(request.startDate);
+      const end = new Date(request.endDate);
+      const currentDate = new Date(start);
+
+      while (currentDate <= end) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        const targetDate = new Date(dateStr);
+        targetDate.setHours(0, 0, 0, 0);
+
+        await this.prisma.attendance.upsert({
+          where: {
+            userId_date: {
+              userId: request.studentId,
+              date: targetDate,
+            },
+          },
+          update: {
+            status: AttendanceStatus.ON_LEAVE,
+            note: `Approved Leave: ${request.reason}`,
+          },
+          create: {
+            userId: request.studentId,
+            date: targetDate,
+            status: AttendanceStatus.ON_LEAVE,
+            note: `Approved Leave: ${request.reason}`,
+          },
+        });
+
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    } catch (err) {
+      console.error('Failed to sync leave request to attendance records:', err);
+    }
+
+    return updatedRequest;
   }
 
   async rejectRequest(id: string, approverId: string, note: string): Promise<LeaveRequest> {

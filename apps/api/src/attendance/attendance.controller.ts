@@ -85,24 +85,16 @@ export class AttendanceController {
   @Get('report')
   @Roles(UserRole.STUDENT, UserRole.MENTOR, UserRole.BD_TEAM, UserRole.SUPER_ADMIN)
   async report(
-    @GetUser() currentUser: { id: string; role: UserRole },
+    @GetUser() currentUser: { id: string; role: UserRole; companyId?: string },
     @Query('studentId') studentId?: string,
     @Query('year') yearStr?: string,
     @Query('month') monthStr?: string,
   ) {
-    let targetStudentId = currentUser.id;
-    if (currentUser.role !== UserRole.STUDENT) {
-      if (!studentId) {
-        throw new ForbiddenException('studentId query parameter is required for mentors/admins');
-      }
-      targetStudentId = studentId;
-    }
-
     const now = new Date();
     const year = yearStr ? parseInt(yearStr, 10) : now.getFullYear();
     const month = monthStr ? parseInt(monthStr, 10) : now.getMonth() + 1;
 
-    return this.attendanceService.getMonthlyReport(targetStudentId, year, month);
+    return this.attendanceService.getCohortMonthlyReport(currentUser, studentId, year, month);
   }
 
   @Patch(':id')
