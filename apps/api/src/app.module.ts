@@ -15,6 +15,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import { TeamsModule } from './teams/teams.module';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { SupportTicketsModule } from './support-tickets/support-tickets.module';
     AuditLogsModule,
     TeamsModule,
     SupportTicketsModule,
+    EventsModule,
   ],
 })
 export class AppModule {}

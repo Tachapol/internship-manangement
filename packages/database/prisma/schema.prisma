@@ -23,6 +23,7 @@ model Company {
   invitations Invitation[]
   teams       Team[]
   users       User[]
+  events      Event[]
 
   @@index([status])
   @@index([deletedAt])
@@ -421,3 +422,22 @@ enum SupportTicketPriority {
   MEDIUM
   HIGH
 }
+
+model Event {
+  id             String             @id @default(uuid()) @db.Uuid
+  name           String
+  dateTime       DateTime
+  location       String
+  description    String
+  audienceType   String             @default("ALL") // "ALL" or "COMPANY"
+  companyId      String?            @db.Uuid
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  deletedAt      DateTime?
+  company        Company?           @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([deletedAt])
+  @@map("events")
+}
+

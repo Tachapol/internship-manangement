@@ -352,3 +352,53 @@ interface PaginatedMeta {
   limit: number;
   totalPages: number;
 }
+
+export interface EventDetail {
+  id: string;
+  name: string;
+  dateTime: string;
+  location: string;
+  description: string;
+  audienceType: "ALL" | "COMPANY";
+  companyId?: string | null;
+  company?: { id: string; name: string } | null;
+  createdAt: string;
+  participants?: {
+    id: string;
+    name: string;
+    email: string;
+    company?: { name: string } | null;
+    team?: { name: string } | null;
+  }[];
+}
+
+export const eventsApi = {
+  create: (data: {
+    name: string;
+    dateTime: string;
+    location: string;
+    description: string;
+    audienceType: "ALL" | "COMPANY";
+    companyId?: string;
+  }) =>
+    request<EventDetail>("/events", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  list: () =>
+    request<EventDetail[]>("/events"),
+  get: (id: string) =>
+    request<EventDetail>(`/events/${id}`),
+  update: (id: string, data: {
+    name?: string;
+    dateTime?: string;
+    location?: string;
+    description?: string;
+    audienceType?: "ALL" | "COMPANY";
+    companyId?: string;
+  }) =>
+    request<EventDetail>(`/events/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+};

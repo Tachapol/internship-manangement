@@ -9,7 +9,7 @@ import { notificationsApi } from "../../lib/api";
 import {
   LayoutDashboard, Building2, Users, CalendarCheck,
   FileSpreadsheet, BookOpen, Bell, Settings, LogOut,
-  Menu, X, ChevronRight, ShieldCheck, Network, HelpCircle, LifeBuoy
+  Menu, X, ChevronRight, ShieldCheck, Network, HelpCircle, LifeBuoy, Calendar
 } from "lucide-react";
 import type { UserRole } from "../../lib/types";
 
@@ -28,6 +28,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Users", href: "/users", icon: Users, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR"] },
   { label: "Attendance", href: "/attendance", icon: CalendarCheck, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
   { label: "Leave Requests", href: "/leave-requests", icon: FileSpreadsheet, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
+  { label: "Events", href: "/events", icon: Calendar, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
   { label: "Training Plans", href: "/training-plans", icon: BookOpen, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
   { label: "Support", href: "/support", icon: LifeBuoy, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
   { label: "Support Tickets", href: "/support-tickets", icon: ShieldCheck, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR"] },
