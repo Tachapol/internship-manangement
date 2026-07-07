@@ -206,6 +206,7 @@ export class SupportTicketsService {
   async assignTicket(
     id: string,
     user: { id: string; role: UserRole },
+    assignedToId?: string,
   ) {
     const isStaff = isStaffRole(user.role);
 
@@ -218,9 +219,11 @@ export class SupportTicketsService {
       throw new NotFoundException('Support ticket not found');
     }
 
+    const targetAssigneeId = assignedToId || user.id;
+
     return this.prisma.supportTicket.update({
       where: { id },
-      data: { assignedToId: user.id },
+      data: { assignedToId: targetAssigneeId },
       include: {
         assignedTo: { select: { id: true, name: true, role: true } },
       },

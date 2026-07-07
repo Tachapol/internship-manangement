@@ -4,7 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { DashboardShell } from "../../../components/layout/dashboard-shell";
-import { supportTicketsApi, type SupportTicketDetail, type SupportTicketReply } from "../../../lib/api";
+import { supportTicketsApi, usersApi, type SupportTicketDetail, type SupportTicketReply } from "../../../lib/api";
+import type { User } from "../../../lib/types";
 import { useAuth } from "../../../lib/auth-context";
 import {
   ChevronLeft, Send, Loader2, AlertCircle, Clock,
@@ -127,6 +128,7 @@ export default function TicketDetailPage() {
   const [reply, setReply] = React.useState("");
   const [sending, setSending] = React.useState(false);
   const [replyError, setReplyError] = React.useState("");
+  const [staffUsers, setStaffUsers] = React.useState<User[]>([]);
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const isStaff = STAFF_ROLES.includes(user?.role ?? "");
 
@@ -146,6 +148,15 @@ export default function TicketDetailPage() {
   React.useEffect(() => {
     loadTicket();
   }, [loadTicket]);
+
+  React.useEffect(() => {
+    if (isStaff) {
+      usersApi.list({ limit: 100 }).then((res) => {
+        const staff = res.data.filter(u => u.role === "SUPER_ADMIN" || u.role === "BD_TEAM" || u.role === "MENTOR");
+        setStaffUsers(staff);
+      }).catch(console.error);
+    }
+  }, [isStaff]);
 
   React.useEffect(() => {
     if (!loading) {
@@ -177,10 +188,10 @@ export default function TicketDetailPage() {
     }
   };
 
-  const handleAssign = async () => {
+  const handleAssign = async (assigneeId?: string) => {
     if (!ticket) return;
     try {
-      const updated = await supportTicketsApi.assign(id);
+      const updated = await supportTicketsApi.assign(id, assigneeId);
       setTicket((prev) => prev ? { ...prev, ...(updated as any) } : prev);
     } catch (err: any) {
       alert(err?.message || "Failed to assign ticket.");
@@ -371,23 +382,34 @@ export default function TicketDetailPage() {
                 <p className="text-text-muted">{ticket.author.email}</p>
               </div>
 
-              <div className="border-t border-borderGray pt-1">
+              <div className="border-t border-borderGray pt-1.5">
                 <p className="text-text-muted font-medium mb-0.5">Assigned to</p>
-                {ticket.assignedTo ? (
-                  <p className="font-semibold text-text-primary">{ticket.assignedTo.name}</p>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <p className="text-text-muted italic">Unassigned</p>
-                    {isStaff && (
+                {isStaff ? (
+                  <div className="space-y-1.5 mt-1">
+                    <select
+                      value={ticket.assignedTo?.id || ""}
+                      onChange={(e) => handleAssign(e.target.value || undefined)}
+                      className="w-full h-8 px-2 bg-bgInput border border-borderGray rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand/30"
+                    >
+                      <option value="">Unassigned</option>
+                      {staffUsers.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.role.replace("_", " ")})
+                        </option>
+                      ))}
+                    </select>
+                    {!ticket.assignedTo && (
                       <button
                         id="btn-assign-self"
-                        onClick={handleAssign}
-                        className="text-[11px] font-bold text-brand hover:underline"
+                        onClick={() => handleAssign()}
+                        className="text-[11.5px] font-bold text-brand hover:underline block ml-1"
                       >
                         Assign to me
                       </button>
                     )}
                   </div>
+                ) : (
+                  <p className="font-semibold text-text-primary">{ticket.assignedTo?.name || "Unassigned"}</p>
                 )}
               </div>
             </CardBody>

@@ -87,13 +87,14 @@ export class SupportTicketsController {
     return this.supportTicketsService.updateStatus(id, user, body.status);
   }
 
-  // PATCH /support-tickets/:id/assign — Assign ticket to self (staff only)
+  // PATCH /support-tickets/:id/assign — Assign ticket to staff (staff only)
   @Patch(':id/assign')
   @Roles(UserRole.SUPER_ADMIN, UserRole.BD_TEAM, UserRole.MENTOR)
   async assign(
     @Param('id', ParseUUIDPipe) id: string,
     @GetUser() user: { id: string; role: UserRole },
+    @Body() body?: { assignedToId?: string },
   ) {
-    return this.supportTicketsService.assignTicket(id, user);
+    return this.supportTicketsService.assignTicket(id, user, body?.assignedToId);
   }
 }

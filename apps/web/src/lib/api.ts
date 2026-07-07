@@ -307,8 +307,11 @@ export const supportTicketsApi = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
-  assign: (id: string) =>
-    request<SupportTicket>(`/support-tickets/${id}/assign`, { method: "PATCH" }),
+  assign: (id: string, assignedToId?: string) =>
+    request<SupportTicket>(`/support-tickets/${id}/assign`, {
+      method: "PATCH",
+      body: assignedToId ? JSON.stringify({ assignedToId }) : undefined,
+    }),
 };
 
 // ─── Local types for support tickets (not in shared types yet) ─

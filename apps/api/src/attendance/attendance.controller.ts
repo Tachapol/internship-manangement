@@ -47,6 +47,8 @@ export class AttendanceController {
   async findAll(
     @GetUser() user: { id: string; role: string; companyId?: string },
     @Query('studentId') studentId?: string,
+    @Query('companyId') companyId?: string,
+    @Query('mentorId') mentorId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('status') status?: AttendanceStatus,
@@ -55,6 +57,8 @@ export class AttendanceController {
   ) {
     const filters = {
       studentId,
+      companyId,
+      mentorId,
       startDate,
       endDate,
       status,

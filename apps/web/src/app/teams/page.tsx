@@ -5,7 +5,7 @@ import { DashboardShell } from "../../components/layout/dashboard-shell";
 import { teamsApi, companiesApi, usersApi } from "../../lib/api";
 import type { Team, User, Company } from "../../lib/types";
 import { PageHeader, Card, CardHeader, EmptyState, ErrorState } from "../../components/ui/shared";
-import { Network, Plus, Search, Edit2, Trash2, Users, Building2, X, Loader2, UserMinus, UserPlus } from "lucide-react";
+import { Network, Plus, Search, Edit2, Trash2, Users, Building2, X, Loader2, UserMinus, UserPlus, GraduationCap } from "lucide-react";
 import { useAuth } from "../../lib/auth-context";
 
 function CreateTeamModal({ onClose, onDone, userCompanyId, isSuperAdmin }: { onClose: () => void; onDone: () => void; userCompanyId: string | null; isSuperAdmin: boolean }) {
@@ -180,7 +180,7 @@ function TeamDetailsModal({ teamId, onClose, onRefresh }: { teamId: string; onCl
   const [team, setTeam] = React.useState<Team | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
-  
+
   // Member assignment state (Draft)
   const [initialMemberIds, setInitialMemberIds] = React.useState<string[]>([]);
   const [currentMembers, setCurrentMembers] = React.useState<User[]>([]);
@@ -198,7 +198,7 @@ function TeamDetailsModal({ teamId, onClose, onRefresh }: { teamId: string; onCl
         const members = teamRes.users || [];
         setCurrentMembers(members);
         setInitialMemberIds(members.map((m: any) => m.id));
-        
+
         // Load eligible users in the same company who can join this team
         return usersApi.list({ companyId: teamRes.companyId, limit: 100 }).then((usersRes) => {
           const memberIds = members.map((u: any) => u.id);
@@ -285,33 +285,65 @@ function TeamDetailsModal({ teamId, onClose, onRefresh }: { teamId: string; onCl
         {!loading && team && (
           <>
             <div className="space-y-4 overflow-y-auto pr-1 flex-1">
-              {/* Members Section */}
+              {/* Mentors Section */}
               <div>
                 <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-text-muted" /> Team Members ({currentMembers.length})
+                  <GraduationCap className="h-3.5 w-3.5 text-text-muted" /> Team Mentors ({currentMembers.filter(m => m.role === "MENTOR").length})
                   {hasChanges && (
                     <span className="text-[10px] bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-full normal-case">
                       unsaved changes
                     </span>
                   )}
                 </h4>
-                
-                {currentMembers.length === 0 ? (
-                  <p className="text-xs text-text-muted py-3 text-center border border-dashed border-borderGray rounded-xl bg-bgPage">
-                    No members assigned to this team yet.
+
+                {currentMembers.filter(m => m.role === "MENTOR").length === 0 ? (
+                  <p className="text-xs text-text-muted py-2.5 text-center border border-dashed border-borderGray rounded-xl bg-bgPage">
+                    No mentors assigned to this team.
                   </p>
                 ) : (
                   <div className="border border-borderGray rounded-xl divide-y divide-borderGray overflow-hidden">
-                    {currentMembers.map((member) => (
+                    {currentMembers.filter(m => m.role === "MENTOR").map((member) => (
                       <div key={member.id} className="p-3 flex items-center justify-between bg-bgPage/30 hover:bg-bgPage/50">
                         <div>
                           <span className="text-sm font-semibold text-text-primary block">{member.name}</span>
-                          <span className="text-xs text-text-muted">{member.email} • {member.role}</span>
+                          <span className="text-xs text-text-muted">{member.email}</span>
                         </div>
                         <button
                           type="button"
                           onClick={() => handleRemoveMemberLocal(member)}
-                          title="Remove member (draft)"
+                          title="Remove mentor (draft)"
+                          className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                        >
+                          <UserMinus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Students Section */}
+              <div>
+                <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-text-muted" /> Team Students ({currentMembers.filter(m => m.role === "STUDENT").length})
+                </h4>
+
+                {currentMembers.filter(m => m.role === "STUDENT").length === 0 ? (
+                  <p className="text-xs text-text-muted py-2.5 text-center border border-dashed border-borderGray rounded-xl bg-bgPage">
+                    No students assigned to this team.
+                  </p>
+                ) : (
+                  <div className="border border-borderGray rounded-xl divide-y divide-borderGray overflow-hidden">
+                    {currentMembers.filter(m => m.role === "STUDENT").map((member) => (
+                      <div key={member.id} className="p-3 flex items-center justify-between bg-bgPage/30 hover:bg-bgPage/50">
+                        <div>
+                          <span className="text-sm font-semibold text-text-primary block">{member.name}</span>
+                          <span className="text-xs text-text-muted">{member.email}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMemberLocal(member)}
+                          title="Remove student (draft)"
                           className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
                         >
                           <UserMinus className="h-3.5 w-3.5" />
@@ -327,7 +359,7 @@ function TeamDetailsModal({ teamId, onClose, onRefresh }: { teamId: string; onCl
                 <h4 className="text-xs font-bold text-text-primary flex items-center gap-1">
                   <UserPlus className="h-3.5 w-3.5 text-brand" /> Add Member to Team
                 </h4>
-                
+
                 {availableUsers.length === 0 ? (
                   <p className="text-xs text-text-muted">No other members available in the company to add.</p>
                 ) : (
@@ -341,27 +373,64 @@ function TeamDetailsModal({ teamId, onClose, onRefresh }: { teamId: string; onCl
                         className="w-full h-9 pl-9 pr-3 bg-white border border-borderGray rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
                       />
                     </div>
-                    
-                    <div className="max-h-[180px] overflow-y-auto border border-borderGray rounded-lg divide-y divide-borderGray bg-white">
+
+                    <div className="max-h-[220px] overflow-y-auto border border-borderGray rounded-lg bg-white divide-y divide-borderGray">
                       {filteredAvailableUsers.length === 0 ? (
                         <p className="text-xs text-text-muted p-3 text-center">No matching members found.</p>
                       ) : (
-                        filteredAvailableUsers.map((u) => (
-                          <div key={u.id} className="p-2 flex items-center justify-between hover:bg-bgPage/30">
-                            <div className="min-w-0 pr-2">
-                              <span className="text-xs font-semibold text-text-primary block truncate">{u.name}</span>
-                              <span className="text-[10px] text-text-muted block truncate">{u.email} • {u.role}</span>
+                        <>
+                          {/* Available Mentors Group */}
+                          {filteredAvailableUsers.filter(u => u.role === "MENTOR").length > 0 && (
+                            <div>
+                              <div className="bg-bgPage/40 px-3 py-1.5 text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 border-b border-borderGray">
+                                <GraduationCap className="h-3 w-3 text-text-muted" /> Mentors
+                              </div>
+                              <div className="divide-y divide-borderGray/45">
+                                {filteredAvailableUsers.filter(u => u.role === "MENTOR").map((u) => (
+                                  <div key={u.id} className="p-2.5 px-3 flex items-center justify-between hover:bg-bgPage/30">
+                                    <div className="min-w-0 pr-2">
+                                      <span className="text-xs font-semibold text-text-primary block truncate">{u.name}</span>
+                                      <span className="text-[10px] text-text-muted block truncate">{u.email}</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAddMemberLocal(u)}
+                                      className="h-6 px-2.5 bg-brand hover:bg-brand-hover text-white text-[10px] font-bold rounded flex items-center gap-0.5 transition-all shrink-0 active:scale-95"
+                                    >
+                                      <Plus className="h-2.5 w-2.5" /> Add
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleAddMemberLocal(u)}
-                              className="h-7 px-3 bg-brand hover:bg-brand-hover text-white text-xs font-semibold rounded-md flex items-center gap-1 transition-all shrink-0 active:scale-95"
-                            >
-                              <Plus className="h-3 w-3" />
-                              Add
-                            </button>
-                          </div>
-                        ))
+                          )}
+
+                          {/* Available Students Group */}
+                          {filteredAvailableUsers.filter(u => u.role === "STUDENT").length > 0 && (
+                            <div>
+                              <div className="bg-bgPage/40 px-3 py-1.5 text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 border-b border-borderGray">
+                                <Users className="h-3 w-3 text-text-muted" /> Students
+                              </div>
+                              <div className="divide-y divide-borderGray/45">
+                                {filteredAvailableUsers.filter(u => u.role === "STUDENT").map((u) => (
+                                  <div key={u.id} className="p-2.5 px-3 flex items-center justify-between hover:bg-bgPage/30">
+                                    <div className="min-w-0 pr-2">
+                                      <span className="text-xs font-semibold text-text-primary block truncate">{u.name}</span>
+                                      <span className="text-[10px] text-text-muted block truncate">{u.email}</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleAddMemberLocal(u)}
+                                      className="h-6 px-2.5 bg-brand hover:bg-brand-hover text-white text-[10px] font-bold rounded flex items-center gap-0.5 transition-all shrink-0 active:scale-95"
+                                    >
+                                      <Plus className="h-2.5 w-2.5" /> Add
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -403,7 +472,7 @@ export default function TeamsPage() {
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState({ total: 0, totalPages: 1 });
-  
+
   // Modals state
   const [showCreateModal, setShowCreateModal] = React.useState(false);
   const [selectedEditTeam, setSelectedEditTeam] = React.useState<Team | null>(null);
@@ -524,7 +593,7 @@ export default function TeamsPage() {
                           )}
                         </div>
                       </div>
-                      
+
                       {canManage && (
                         <div className="flex gap-1 shrink-0">
                           <button

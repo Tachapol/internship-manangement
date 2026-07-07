@@ -6,7 +6,7 @@ import { DashboardShell } from "../../components/layout/dashboard-shell";
 import { useAuth } from "../../lib/auth-context";
 import { dashboardApi, attendanceApi, leaveRequestsApi, notificationsApi } from "../../lib/api";
 import type {
-  DashboardStats, SuperAdminStats, BdTeamStats, MentorStats, StudentStats, AttendanceStatus
+  DashboardStats, SuperAdminStats, BdTeamStats, MentorStats, StudentStats, AttendanceStatus, Attendance, LeaveRequest
 } from "../../lib/types";
 import {
   CardSkeleton, ErrorState, KpiCard, StatusBadge,
@@ -16,10 +16,9 @@ import {
   Building2, Users, GraduationCap, CalendarCheck, FileSpreadsheet,
   BookOpen, Bell, CheckCircle2, Clock, Award, RefreshCw,
   Plus, ChevronRight, Check, X, Activity, Sparkles, TrendingUp,
-  MapPin, Calendar, AlertCircle, ArrowUpRight, CheckSquare
+  MapPin, Calendar, AlertCircle, ArrowUpRight, CheckSquare, BarChart3, Presentation, Globe, Loader2, XCircle
 } from "lucide-react";
-import { formatDate } from "../../lib/utils";
-
+import { formatDate, cn } from "../../lib/utils";
 
 const formatTime = (timeStr: string | Date | null) => {
   if (!timeStr) return "--:--";
@@ -233,109 +232,555 @@ function SuperAdminDashboard({ data, onRefresh }: { data: SuperAdminStats; onRef
 
 // ─── BD Team Dashboard ────────────────────────────────────────
 function BdTeamDashboard({ data }: { data: BdTeamStats }) {
+  const [activeTab, setActiveTab] = React.useState<"overview" | "attendance_stats">("overview");
+  
+  // Monitoring Tab State
+  const [monitoringLoading, setMonitoringLoading] = React.useState(false);
+  const [attendanceRecords, setAttendanceRecords] = React.useState<Attendance[]>([]);
+  const [hoveredData, setHoveredData] = React.useState<{ date: string; details: string } | null>(null);
+  const [selectedDateFilter, setSelectedDateFilter] = React.useState<string | null>(null);
+  const [violationTypeFilter, setViolationTypeFilter] = React.useState<"ALL" | "LATE" | "ABSENT">("ALL");
+
+  // Advanced Filters
+  const [filterStartDate, setFilterStartDate] = React.useState("");
+  const [filterEndDate, setFilterEndDate] = React.useState("");
+  const [filterCompanyId, setFilterCompanyId] = React.useState("");
+  const [filterMentorId, setFilterMentorId] = React.useState("");
+  const [filterStatus, setFilterStatus] = React.useState("");
+
+  React.useEffect(() => {
+    if (activeTab === "attendance_stats") {
+      setMonitoringLoading(true);
+      
+      const params: Record<string, string | number | undefined> = {
+        startDate: filterStartDate || undefined,
+        endDate: filterEndDate || undefined,
+        companyId: filterCompanyId || undefined,
+        mentorId: filterMentorId || undefined,
+        status: filterStatus || undefined,
+        limit: 200,
+      };
+
+      // Fallback default date range if none selected
+      if (!filterStartDate && !filterEndDate) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        params.startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+        params.endDate = new Date(year, month, 0).toISOString().split("T")[0];
+      }
+
+      attendanceApi.list(params)
+        .then((res) => {
+          setAttendanceRecords(res.data || []);
+        })
+        .catch(console.error)
+        .finally(() => setMonitoringLoading(false));
+    }
+  }, [activeTab, filterStartDate, filterEndDate, filterCompanyId, filterMentorId, filterStatus]);
+
   const approvalTotal = data.leaveStats.APPROVED + data.leaveStats.REJECTED;
   const approvalRate = approvalTotal > 0
     ? ((data.leaveStats.APPROVED / approvalTotal) * 100).toFixed(0)
     : "0";
 
+  // Calculate Attendance Statistics
+  const totalLogs = attendanceRecords.length;
+  const presentCount = attendanceRecords.filter(r => r.status === "PRESENT").length;
+  const lateCount = attendanceRecords.filter(r => r.status === "LATE").length;
+  const absentCount = attendanceRecords.filter(r => r.status === "ABSENT").length;
+  const leaveCount = attendanceRecords.filter(r => r.status === "ON_LEAVE").length;
+
+  const activeDenom = presentCount + lateCount;
+  const onTimeRate = activeDenom > 0 ? Math.round((presentCount / activeDenom) * 100) : 100;
+
+  // Process Daily Statistics for Charts (Last 7 distinct active dates)
+  const dailyStats = React.useMemo(() => {
+    const datesMap: Record<string, { date: string; PRESENT: number; LATE: number; ABSENT: number; ON_LEAVE: number; total: number }> = {};
+    
+    attendanceRecords.forEach((r) => {
+      const dateStr = new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      if (!datesMap[dateStr]) {
+        datesMap[dateStr] = { date: dateStr, PRESENT: 0, LATE: 0, ABSENT: 0, ON_LEAVE: 0, total: 0 };
+      }
+      if (r.status in datesMap[dateStr]) {
+        datesMap[dateStr][r.status as AttendanceStatus]++;
+      }
+      datesMap[dateStr].total++;
+    });
+
+    return Object.values(datesMap)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(-7);
+  }, [attendanceRecords]);
+
+  // Students in Violation
+  const violationsList = React.useMemo(() => {
+    return attendanceRecords.filter((r) => {
+      const isViolation = r.status === "LATE" || r.status === "ABSENT";
+      if (!isViolation) return false;
+
+      const dateStr = new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      if (selectedDateFilter && dateStr !== selectedDateFilter) return false;
+
+      if (violationTypeFilter === "LATE" && r.status !== "LATE") return false;
+      if (violationTypeFilter === "ABSENT" && r.status !== "ABSENT") return false;
+
+      return true;
+    });
+  }, [attendanceRecords, selectedDateFilter, violationTypeFilter]);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      {/* Metrics Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard label="Active Partnerships" value={data.companyOverview.filter(c => c.status === "ACTIVE").length} icon={Building2} iconBg="bg-brand/10" iconColor="text-brand" />
-        <KpiCard label="Total Students" value={data.totalStudents} icon={Users} iconBg="bg-buddy/10" iconColor="text-buddy" />
-        <KpiCard label="Total Mentors" value={data.totalMentors} icon={GraduationCap} iconBg="bg-success/10" iconColor="text-success" />
-        <KpiCard label="Total Training Plans" value={data.totalTrainingPlans} icon={BookOpen} iconBg="bg-blue-50" iconColor="text-blue-600" />
+      {/* Tab Switcher */}
+      <div className="flex items-center gap-2 border-b border-borderGray pb-1">
+        <button
+          onClick={() => setActiveTab("overview")}
+          className={`px-4 py-2 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === "overview"
+              ? "border-brand text-brand"
+              : "border-transparent text-text-muted hover:text-text-primary"
+          }`}
+        >
+          <Presentation className="h-4 w-4" /> Company Overview
+        </button>
+        <button
+          onClick={() => setActiveTab("attendance_stats")}
+          className={`px-4 py-2 text-sm font-bold border-b-2 transition-all flex items-center gap-2 ${
+            activeTab === "attendance_stats"
+              ? "border-brand text-brand"
+              : "border-transparent text-text-muted hover:text-text-primary"
+          }`}
+        >
+          <BarChart3 className="h-4 w-4" /> Attendance Statistics
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <Card className="lg:col-span-2">
-          <CardHeader><h3 className="font-bold text-text-primary text-sm">Company Overview</h3></CardHeader>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-bgPage border-b border-borderGray">
-                <tr>
-                  {["Company", "Status", "Interns", "Mentors"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[11px] font-bold text-text-muted uppercase tracking-wider">{h}</th>
+      {activeTab === "overview" ? (
+        <>
+          {/* Metrics Row */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard label="Active Partnerships" value={data.companyOverview.filter(c => c.status === "ACTIVE").length} icon={Building2} iconBg="bg-brand/10" iconColor="text-brand" />
+            <KpiCard label="Total Students" value={data.totalStudents} icon={Users} iconBg="bg-buddy/10" iconColor="text-buddy" />
+            <KpiCard label="Total Mentors" value={data.totalMentors} icon={GraduationCap} iconBg="bg-success/10" iconColor="text-success" />
+            <KpiCard label="Total Training Plans" value={data.totalTrainingPlans} icon={BookOpen} iconBg="bg-blue-50" iconColor="text-blue-600" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <Card className="lg:col-span-2">
+              <CardHeader><h3 className="font-bold text-text-primary text-sm">Company Overview</h3></CardHeader>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-bgPage border-b border-borderGray">
+                    <tr>
+                      {["Company", "Status", "Interns", "Mentors"].map(h => (
+                        <th key={h} className="px-4 py-3 text-[11px] font-bold text-text-muted uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-borderGray">
+                    {data.companyOverview.map(c => (
+                      <tr key={c.companyId} className="hover:bg-bgPage/50 transition-colors">
+                        <td className="px-4 py-3 text-sm font-semibold text-text-primary">{c.name}</td>
+                        <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
+                        <td className="px-4 py-3 text-sm font-semibold text-text-secondary">{c.studentCount} students</td>
+                        <td className="px-4 py-3 text-sm text-text-muted">{c.mentorCount} mentors</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            <div className="space-y-5">
+              <Card>
+                <CardHeader><h3 className="font-bold text-text-primary text-sm">Attendance Distribution</h3></CardHeader>
+                <CardBody className="space-y-4">
+                  {([["PRESENT", "bg-success", data.attendanceStats.PRESENT], ["LATE", "bg-amber-400", data.attendanceStats.LATE], ["ABSENT", "bg-danger", data.attendanceStats.ABSENT], ["ON LEAVE", "bg-buddy", data.attendanceStats.ON_LEAVE]] as const).map(([label, color, val]) => (
+                    <div key={label}>
+                      <div className="flex justify-between text-[11px] font-bold mb-1.5">
+                        <span className="text-text-secondary">{label}</span>
+                        <span className="text-text-primary">{val}%</span>
+                      </div>
+                      <ProgressBar value={val} color={color} />
+                    </div>
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-borderGray">
-                {data.companyOverview.map(c => (
-                  <tr key={c.companyId} className="hover:bg-bgPage/50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-semibold text-text-primary">{c.name}</td>
-                    <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
-                    <td className="px-4 py-3 text-sm font-semibold text-text-secondary">{c.studentCount} students</td>
-                    <td className="px-4 py-3 text-sm text-text-muted">{c.mentorCount} mentors</td>
-                  </tr>
+                </CardBody>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <h3 className="font-bold text-text-primary text-sm">Leave Approvals</h3>
+                  <span className="text-xs font-bold text-success bg-success/10 px-2 py-0.5 rounded-full">{approvalRate}% Approved</span>
+                </CardHeader>
+                <CardBody className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3 text-center">
+                    <div className="p-2 bg-success/5 border border-success/10 rounded-lg">
+                      <p className="text-xs font-bold text-success">{data.leaveStats.APPROVED}</p>
+                      <p className="text-[10px] text-text-muted font-semibold">APPROVED</p>
+                    </div>
+                    <div className="p-2 bg-danger/5 border border-danger/10 rounded-lg">
+                      <p className="text-xs font-bold text-danger">{data.leaveStats.REJECTED}</p>
+                      <p className="text-[10px] text-text-muted font-semibold">REJECTED</p>
+                    </div>
+                  </div>
+                </CardBody>
+              </Card>
+            </div>
+          </div>
+
+          <Card>
+            <CardHeader><h3 className="font-bold text-text-primary text-sm">Mentor Performance</h3></CardHeader>
+            <CardBody>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {data.mentorPerformance.map(m => (
+                  <div key={m.mentorId} className="p-4 border border-borderGray rounded-xl bg-white shadow-sm hover:shadow transition-all space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-semibold text-text-primary">{m.name}</p>
+                        <p className="text-xs text-text-muted">{m.email}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs mb-1.5">
+                        <span className="text-text-muted font-medium">Student Check-In Rate</span>
+                        <span className="font-bold text-success">{m.checkInRate}%</span>
+                      </div>
+                      <ProgressBar value={m.checkInRate} color="bg-success" />
+                    </div>
+                    <p className="text-xs text-text-muted font-semibold">{m.studentCount} assigned interns</p>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-
-        <div className="space-y-5">
-          <Card>
-            <CardHeader><h3 className="font-bold text-text-primary text-sm">Attendance Distribution</h3></CardHeader>
-            <CardBody className="space-y-4">
-              {([["PRESENT", "bg-success", data.attendanceStats.PRESENT], ["LATE", "bg-amber-400", data.attendanceStats.LATE], ["ABSENT", "bg-danger", data.attendanceStats.ABSENT], ["ON LEAVE", "bg-buddy", data.attendanceStats.ON_LEAVE]] as const).map(([label, color, val]) => (
-                <div key={label}>
-                  <div className="flex justify-between text-[11px] font-bold mb-1.5">
-                    <span className="text-text-secondary">{label}</span>
-                    <span className="text-text-primary">{val}%</span>
-                  </div>
-                  <ProgressBar value={val} color={color} />
-                </div>
-              ))}
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <h3 className="font-bold text-text-primary text-sm">Leave Approvals</h3>
-              <span className="text-xs font-bold text-success bg-success/10 px-2 py-0.5 rounded-full">{approvalRate}% Approved</span>
-            </CardHeader>
-            <CardBody className="space-y-3">
-              <div className="grid grid-cols-2 gap-3 text-center">
-                <div className="p-2 bg-success/5 border border-success/10 rounded-lg">
-                  <p className="text-xs font-bold text-success">{data.leaveStats.APPROVED}</p>
-                  <p className="text-[10px] text-text-muted font-semibold">APPROVED</p>
-                </div>
-                <div className="p-2 bg-danger/5 border border-danger/10 rounded-lg">
-                  <p className="text-xs font-bold text-danger">{data.leaveStats.REJECTED}</p>
-                  <p className="text-[10px] text-text-muted font-semibold">REJECTED</p>
-                </div>
               </div>
             </CardBody>
           </Card>
-        </div>
-      </div>
+        </>
+      ) : (
+        <div className="space-y-6">
+          {/* Advanced Filters */}
+          <div className="bg-white border border-borderGray rounded-2xl p-4 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 items-end">
+            <div>
+              <label className="text-xs font-bold text-text-primary block mb-1 uppercase tracking-wider">Start Date</label>
+              <input
+                type="date"
+                value={filterStartDate}
+                onChange={(e) => setFilterStartDate(e.target.value)}
+                className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand/30"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-text-primary block mb-1 uppercase tracking-wider">End Date</label>
+              <input
+                type="date"
+                value={filterEndDate}
+                onChange={(e) => setFilterEndDate(e.target.value)}
+                className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-brand/30"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-text-primary block mb-1 uppercase tracking-wider">Business (Company)</label>
+              <select
+                value={filterCompanyId}
+                onChange={(e) => setFilterCompanyId(e.target.value)}
+                className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand/30"
+              >
+                <option value="">All Businesses</option>
+                {data.companyOverview.map(c => (
+                  <option key={c.companyId} value={c.companyId}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-text-primary block mb-1 uppercase tracking-wider">Mentor</label>
+              <select
+                value={filterMentorId}
+                onChange={(e) => setFilterMentorId(e.target.value)}
+                className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand/30"
+              >
+                <option value="">All Mentors</option>
+                {data.mentorPerformance.map(m => (
+                  <option key={m.mentorId} value={m.mentorId}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-text-primary block mb-1 uppercase tracking-wider">Attendance Status</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand/30"
+              >
+                <option value="">All Statuses</option>
+                <option value="PRESENT">Present</option>
+                <option value="LATE">Late</option>
+                <option value="ABSENT">Absent</option>
+                <option value="ON_LEAVE">On Leave</option>
+              </select>
+            </div>
+          </div>
 
-      <Card>
-        <CardHeader><h3 className="font-bold text-text-primary text-sm">Mentor Performance</h3></CardHeader>
-        <CardBody>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {data.mentorPerformance.map(m => (
-              <div key={m.mentorId} className="p-4 border border-borderGray rounded-xl bg-white shadow-sm hover:shadow transition-all space-y-3">
-                <div className="flex justify-between items-start">
+          {monitoringLoading ? (
+            <div className="flex items-center justify-center p-12">
+              <Loader2 className="h-8 w-8 animate-spin text-brand" />
+            </div>
+          ) : (
+            <>
+              {/* KPI Cards Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <KpiCard label="On-Time Rate" value={`${onTimeRate}%`} sub="Present out of active check-ins" icon={CheckCircle2} iconBg="bg-emerald-50 border border-emerald-100" iconColor="text-emerald-600" />
+                <KpiCard label="Late Arrivals" value={lateCount} sub="Check-ins after 08:00 AM" icon={AlertCircle} iconBg="bg-amber-50 border border-amber-100" iconColor="text-amber-600" />
+                <KpiCard label="Absent Students" value={absentCount} sub="Expected but missed check-in" icon={XCircle} iconBg="bg-rose-50 border border-rose-100" iconColor="text-rose-600" />
+                <KpiCard label="Approved Leaves" value={leaveCount} sub="Synced students on leave" icon={Clock} iconBg="bg-violet-50 border border-violet-100" iconColor="text-violet-600" />
+              </div>
+
+              {/* Charts Panel */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                
+                {/* Line Chart: On-Time Rate Trend */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-brand" />
+                      <h4 className="font-bold text-text-primary text-sm">On-Time Rate Trend</h4>
+                    </div>
+                    <span className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">Last 7 Active Days</span>
+                  </CardHeader>
+                  <CardBody className="p-6">
+                    {dailyStats.length === 0 ? (
+                      <div className="text-center py-8 text-xs text-text-muted">No attendance logs available for this period.</div>
+                    ) : (
+                      <div className="w-full relative">
+                        <svg className="w-full h-40 overflow-visible" viewBox="0 0 500 160">
+                          {/* Y-axis helper grids */}
+                          {[0, 50, 100].map((val) => {
+                            const y = 140 - (val * 120) / 100;
+                            return (
+                              <g key={val}>
+                                <line x1="30" y1={y} x2="480" y2={y} stroke="var(--border-gray)" strokeDasharray="3,3" />
+                                <text x="10" y={y + 4} className="text-[9px] font-mono fill-text-muted font-bold">{val}%</text>
+                              </g>
+                            );
+                          })}
+
+                          {/* Generate Points */}
+                          {(() => {
+                            const points = dailyStats.map((d, i) => {
+                              const x = 50 + (i * 410) / (dailyStats.length - 1 || 1);
+                              const active = d.PRESENT + d.LATE;
+                              const rate = active > 0 ? (d.PRESENT / active) * 100 : 100;
+                              const y = 140 - (rate * 120) / 100;
+                              return { x, y, rate, date: d.date };
+                            });
+
+                            const dPath = points.reduce((acc, p, i) => acc + `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`, "");
+                            const areaPath = points.length > 0
+                              ? `${dPath} L ${points[points.length - 1].x} 140 L ${points[0].x} 140 Z`
+                              : "";
+
+                            return (
+                              <>
+                                {areaPath && <path d={areaPath} fill="rgba(255, 140, 55, 0.08)" />}
+                                {dPath && <path d={dPath} fill="none" stroke="var(--brand)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
+                                {points.map((p, i) => (
+                                  <g
+                                    key={i}
+                                    className="cursor-pointer group"
+                                    onMouseEnter={() => setHoveredData({ date: p.date, details: `On-Time Rate: ${Math.round(p.rate)}%` })}
+                                    onMouseLeave={() => setHoveredData(null)}
+                                    onClick={() => setSelectedDateFilter(p.date)}
+                                  >
+                                    <circle
+                                      cx={p.x}
+                                      cy={p.y}
+                                      r={selectedDateFilter === p.date ? "7" : "5"}
+                                      fill={selectedDateFilter === p.date ? "var(--brand)" : "white"}
+                                      stroke="var(--brand)"
+                                      strokeWidth="2.5"
+                                      className="transition-all duration-150 group-hover:scale-125"
+                                    />
+                                    <text x={p.x} y="155" textAnchor="middle" className="text-[9px] font-bold fill-text-muted uppercase">{p.date}</text>
+                                  </g>
+                                ))}
+                              </>
+                            );
+                          })()}
+                        </svg>
+                      </div>
+                    )}
+                  </CardBody>
+                </Card>
+
+                {/* Stacked Bar Chart: Daily Attendance Breakdown */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-brand" />
+                      <h4 className="font-bold text-text-primary text-sm">Attendance Status Breakdown</h4>
+                    </div>
+                    <span className="text-[10px] text-text-muted font-semibold uppercase tracking-wider">Click columns to filter logs</span>
+                  </CardHeader>
+                  <CardBody className="p-6">
+                    {dailyStats.length === 0 ? (
+                      <div className="text-center py-8 text-xs text-text-muted">No attendance logs available for this period.</div>
+                    ) : (
+                      <div className="w-full">
+                        <svg className="w-full h-40 overflow-visible" viewBox="0 0 500 160">
+                          {dailyStats.map((d, i) => {
+                            const x = 40 + (i * 65);
+                            const total = d.PRESENT + d.LATE + d.ABSENT + d.ON_LEAVE || 1;
+                            
+                            // Height calculations for stacked segments (total height 110px)
+                            const maxH = 110;
+                            const presH = (d.PRESENT / total) * maxH;
+                            const lateH = (d.LATE / total) * maxH;
+                            const absH  = (d.ABSENT / total) * maxH;
+                            const leaveH = (d.ON_LEAVE / total) * maxH;
+
+                            const yPres  = 130 - presH;
+                            const yLate  = yPres - lateH;
+                            const yAbs   = yLate - absH;
+                            const yLeave = yAbs - leaveH;
+
+                            return (
+                              <g
+                                key={d.date}
+                                className="cursor-pointer group"
+                                onClick={() => setSelectedDateFilter(selectedDateFilter === d.date ? null : d.date)}
+                                onMouseEnter={() => setHoveredData({ date: d.date, details: `Present: ${d.PRESENT} · Late: ${d.LATE} · Absent: ${d.ABSENT} · On Leave: ${d.ON_LEAVE}` })}
+                                onMouseLeave={() => setHoveredData(null)}
+                              >
+                                {/* Background hover highlights */}
+                                <rect x={x - 8} y="10" width="36" height="128" fill={selectedDateFilter === d.date ? "rgba(255, 140, 55, 0.05)" : "transparent"} className="rounded-lg group-hover:fill-bgInput/40 transition-colors" rx="4" />
+                                
+                                {/* Present (Green) */}
+                                {presH > 0 && <rect x={x} y={yPres} width="20" height={presH} fill="#10b981" rx="2" />}
+                                {/* Late (Amber) */}
+                                {lateH > 0 && <rect x={x} y={yLate} width="20" height={lateH} fill="#f59e0b" rx="2" />}
+                                {/* Absent (Red) */}
+                                {absH > 0 && <rect x={x} y={yAbs} width="20" height={absH} fill="#ef4444" rx="2" />}
+                                {/* Leave (Purple) */}
+                                {leaveH > 0 && <rect x={x} y={yLeave} width="20" height={leaveH} fill="#8b5cf6" rx="2" />}
+
+                                <text x={x + 10} y="150" textAnchor="middle" className="text-[9px] font-bold fill-text-muted uppercase">{d.date}</text>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      </div>
+                    )}
+                  </CardBody>
+                </Card>
+              </div>
+
+              {/* Tooltip Hover Info Banner */}
+              {hoveredData && (
+                <div className="bg-bgInput/80 backdrop-blur-sm border border-brand/20 p-2.5 rounded-xl text-xs font-semibold text-text-primary flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-bottom-1 duration-150">
+                  <span className="text-brand font-black">{hoveredData.date}</span>
+                  <span className="text-text-secondary">{hoveredData.details}</span>
+                </div>
+              )}
+
+              {/* Students in Violation List */}
+              <Card>
+                <CardHeader className="flex items-center justify-between flex-wrap gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-text-primary">{m.name}</p>
-                    <p className="text-xs text-text-muted">{m.email}</p>
+                    <h4 className="font-bold text-text-primary text-sm flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-danger" /> 
+                      Students in Violation
+                      {selectedDateFilter && (
+                        <span className="bg-brand/10 text-brand px-2 py-0.5 text-[10px] rounded border border-brand/25 font-black uppercase ml-1">
+                          {selectedDateFilter} Only
+                        </span>
+                      )}
+                    </h4>
+                    <p className="text-[10px] text-text-muted mt-0.5 font-bold uppercase tracking-wider">List of late or absent student records</p>
                   </div>
-                </div>
-                <div>
-                  <div className="flex justify-between text-xs mb-1.5">
-                    <span className="text-text-muted font-medium">Student Check-In Rate</span>
-                    <span className="font-bold text-success">{m.checkInRate}%</span>
+
+                  {/* Violation filters */}
+                  <div className="flex items-center gap-2">
+                    {selectedDateFilter && (
+                      <button
+                        onClick={() => setSelectedDateFilter(null)}
+                        className="h-7 px-2.5 bg-bgInput text-[10px] font-bold text-text-secondary rounded-lg border border-borderGray hover:bg-white hover:text-brand transition-all"
+                      >
+                        Clear Date Filter
+                      </button>
+                    )}
+                    <div className="flex rounded-lg border border-borderGray overflow-hidden">
+                      {(["ALL", "LATE", "ABSENT"] as const).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setViolationTypeFilter(t)}
+                          className={cn(
+                            "h-7 px-3 text-[10px] font-bold transition-all",
+                            violationTypeFilter === t
+                              ? "bg-brand text-white"
+                              : "bg-white text-text-muted hover:text-brand"
+                          )}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <ProgressBar value={m.checkInRate} color="bg-success" />
+                </CardHeader>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-borderGray bg-bgInput/20 text-xs font-bold text-text-muted uppercase tracking-wider">
+                        <th className="px-5 py-3.5">Student</th>
+                        <th className="px-5 py-3.5">Date</th>
+                        <th className="px-5 py-3.5">Check-In</th>
+                        <th className="px-5 py-3.5">Check-Out</th>
+                        <th className="px-5 py-3.5">Details</th>
+                        <th className="px-5 py-3.5 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-borderGray/65 text-sm">
+                      {violationsList.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-xs text-text-muted font-semibold">
+                            No student violations found for the selected filter.
+                          </td>
+                        </tr>
+                      ) : (
+                        violationsList.map((v) => (
+                          <tr key={v.id} className="hover:bg-bgPage/35 transition-colors">
+                            <td className="px-5 py-3.5 font-bold text-text-primary">{v.user?.name ?? "—"}</td>
+                            <td className="px-5 py-3.5 text-text-secondary font-medium">{formatDate(v.date)}</td>
+                            <td className="px-5 py-3.5 text-xs">
+                              {v.checkIn ? (
+                                <div className="space-y-0.5">
+                                  <span className="font-bold text-text-primary">{formatTime(v.checkIn)}</span>
+                                  {v.checkInIp && <span className="text-[10px] text-text-muted block font-mono"><Globe className="h-2.5 w-2.5 inline mr-0.5" />{v.checkInIp}</span>}
+                                </div>
+                              ) : "—"}
+                            </td>
+                            <td className="px-5 py-3.5 text-xs">
+                              {v.checkOut ? (
+                                <div className="space-y-0.5">
+                                  <span className="font-semibold text-text-primary">{formatTime(v.checkOut)}</span>
+                                </div>
+                              ) : "—"}
+                            </td>
+                            <td className="px-5 py-3.5 text-xs text-text-secondary italic max-w-xs truncate">
+                              {v.note || v.checkInLocation || "No notes"}
+                            </td>
+                            <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                              <StatusBadge status={v.status} />
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-                <p className="text-xs text-text-muted font-semibold">{m.studentCount} assigned interns</p>
-              </div>
-            ))}
-          </div>
-        </CardBody>
-      </Card>
+              </Card>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

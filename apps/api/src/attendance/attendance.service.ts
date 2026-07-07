@@ -198,6 +198,8 @@ export class AttendanceService {
     user: { id: string; role: string; companyId?: string },
     filters: {
       studentId?: string;
+      companyId?: string;
+      mentorId?: string;
       startDate?: string;
       endDate?: string;
       status?: AttendanceStatus;
@@ -209,29 +211,42 @@ export class AttendanceService {
       deletedAt: null,
     };
 
+    where.user = {};
+
     if (user.role === UserRole.STUDENT) {
       where.userId = user.id;
     } else if (user.role === UserRole.MENTOR) {
-      where.user = {
-        mentorId: user.id,
-      };
+      where.user.mentorId = user.id;
       if (filters.studentId) {
         where.userId = filters.studentId;
       }
     } else if (user.role === UserRole.BD_TEAM) {
       if (user.companyId) {
-        where.user = {
-          companyId: user.companyId,
-        };
+        where.user.companyId = user.companyId;
+      } else if (filters.companyId) {
+        where.user.companyId = filters.companyId;
+      }
+      if (filters.mentorId) {
+        where.user.mentorId = filters.mentorId;
       }
       if (filters.studentId) {
         where.userId = filters.studentId;
       }
     } else {
       // SUPER_ADMIN
+      if (filters.companyId) {
+        where.user.companyId = filters.companyId;
+      }
+      if (filters.mentorId) {
+        where.user.mentorId = filters.mentorId;
+      }
       if (filters.studentId) {
         where.userId = filters.studentId;
       }
+    }
+
+    if (Object.keys(where.user).length === 0) {
+      delete where.user;
     }
 
     if (filters.status) {

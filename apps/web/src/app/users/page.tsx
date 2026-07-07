@@ -203,6 +203,29 @@ export default function UsersPage() {
         }
       />
 
+      {/* Role Filter Tabs */}
+      <div className="flex items-center gap-1 border-b border-borderGray pb-1 mb-5">
+        {([
+          { value: "", label: "All Users" },
+          { value: "STUDENT", label: "Students" },
+          { value: "MENTOR", label: "Mentors" },
+          { value: "BD_TEAM", label: "BD Team" },
+          { value: "SUPER_ADMIN", label: "Super Admins" }
+        ] as const).map((tab) => (
+          <button
+            key={tab.value}
+            onClick={() => { setRoleFilter(tab.value); setPage(1); }}
+            className={`px-4 py-2 text-sm font-bold border-b-2 transition-all ${
+              roleFilter === tab.value
+                ? "border-brand text-brand"
+                : "border-transparent text-text-muted hover:text-text-primary"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Filters */}
       <Card className="mb-5">
         <div className="p-4 flex flex-col sm:flex-row gap-3">
@@ -216,22 +239,11 @@ export default function UsersPage() {
             />
           </div>
           <select
-            value={roleFilter}
-            onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-            className="h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/30"
-          >
-            <option value="">All Roles</option>
-            <option value="SUPER_ADMIN">Super Admin</option>
-            <option value="BD_TEAM">BD Team</option>
-            <option value="MENTOR">Mentor</option>
-            <option value="STUDENT">Student</option>
-          </select>
-          <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
             className="h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/30"
           >
-            <option value="">All Status</option>
+            <option value="">All Statuses</option>
             <option value="ACTIVE">Active</option>
             <option value="INACTIVE">Inactive</option>
             <option value="PENDING_SETUP">Pending Setup</option>
