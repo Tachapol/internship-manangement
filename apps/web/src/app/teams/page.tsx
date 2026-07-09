@@ -176,7 +176,7 @@ function EditTeamModal({ team, onClose, onDone }: { team: Team; onClose: () => v
   );
 }
 
-function TeamDetailsModal({ teamId, onClose, onRefresh }: { teamId: string; onClose: () => void; onRefresh: () => void }) {
+function TeamDetailsModal({ teamId, onClose, onRefresh, canManage }: { teamId: string; onClose: () => void; onRefresh: () => void; canManage: boolean }) {
   const [team, setTeam] = React.useState<Team | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -308,14 +308,16 @@ function TeamDetailsModal({ teamId, onClose, onRefresh }: { teamId: string; onCl
                           <span className="text-sm font-semibold text-text-primary block">{member.name}</span>
                           <span className="text-xs text-text-muted">{member.email}</span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveMemberLocal(member)}
-                          title="Remove mentor (draft)"
-                          className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
-                        >
-                          <UserMinus className="h-3.5 w-3.5" />
-                        </button>
+                        {canManage && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMemberLocal(member)}
+                            title="Remove mentor (draft)"
+                            className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                          >
+                            <UserMinus className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -340,14 +342,16 @@ function TeamDetailsModal({ teamId, onClose, onRefresh }: { teamId: string; onCl
                           <span className="text-sm font-semibold text-text-primary block">{member.name}</span>
                           <span className="text-xs text-text-muted">{member.email}</span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveMemberLocal(member)}
-                          title="Remove student (draft)"
-                          className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
-                        >
-                          <UserMinus className="h-3.5 w-3.5" />
-                        </button>
+                        {canManage && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMemberLocal(member)}
+                            title="Remove student (draft)"
+                            className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+                          >
+                            <UserMinus className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -355,107 +359,121 @@ function TeamDetailsModal({ teamId, onClose, onRefresh }: { teamId: string; onCl
               </div>
 
               {/* Add Member Section */}
-              <div className="bg-bgPage/40 p-4 border border-borderGray rounded-xl mt-2 flex flex-col gap-3">
-                <h4 className="text-xs font-bold text-text-primary flex items-center gap-1">
-                  <UserPlus className="h-3.5 w-3.5 text-brand" /> Add Member to Team
-                </h4>
+              {canManage && (
+                <div className="bg-bgPage/40 p-4 border border-borderGray rounded-xl mt-2 flex flex-col gap-3">
+                  <h4 className="text-xs font-bold text-text-primary flex items-center gap-1">
+                    <UserPlus className="h-3.5 w-3.5 text-brand" /> Add Member to Team
+                  </h4>
 
-                {availableUsers.length === 0 ? (
-                  <p className="text-xs text-text-muted">No other members available in the company to add.</p>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted" />
-                      <input
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search member by name, email, or role..."
-                        className="w-full h-9 pl-9 pr-3 bg-white border border-borderGray rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
-                      />
-                    </div>
+                  {availableUsers.length === 0 ? (
+                    <p className="text-xs text-text-muted">No other members available in the company to add.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-muted" />
+                        <input
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search member by name, email, or role..."
+                          className="w-full h-9 pl-9 pr-3 bg-white border border-borderGray rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+                        />
+                      </div>
 
-                    <div className="max-h-[220px] overflow-y-auto border border-borderGray rounded-lg bg-white divide-y divide-borderGray">
-                      {filteredAvailableUsers.length === 0 ? (
-                        <p className="text-xs text-text-muted p-3 text-center">No matching members found.</p>
-                      ) : (
-                        <>
-                          {/* Available Mentors Group */}
-                          {filteredAvailableUsers.filter(u => u.role === "MENTOR").length > 0 && (
-                            <div>
-                              <div className="bg-bgPage/40 px-3 py-1.5 text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 border-b border-borderGray">
-                                <GraduationCap className="h-3 w-3 text-text-muted" /> Mentors
-                              </div>
-                              <div className="divide-y divide-borderGray/45">
-                                {filteredAvailableUsers.filter(u => u.role === "MENTOR").map((u) => (
-                                  <div key={u.id} className="p-2.5 px-3 flex items-center justify-between hover:bg-bgPage/30">
-                                    <div className="min-w-0 pr-2">
-                                      <span className="text-xs font-semibold text-text-primary block truncate">{u.name}</span>
-                                      <span className="text-[10px] text-text-muted block truncate">{u.email}</span>
+                      <div className="max-h-[220px] overflow-y-auto border border-borderGray rounded-lg bg-white divide-y divide-borderGray">
+                        {filteredAvailableUsers.length === 0 ? (
+                          <p className="text-xs text-text-muted p-3 text-center">No matching members found.</p>
+                        ) : (
+                          <>
+                            {/* Available Mentors Group */}
+                            {filteredAvailableUsers.filter(u => u.role === "MENTOR").length > 0 && (
+                              <div>
+                                <div className="bg-bgPage/40 px-3 py-1.5 text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 border-b border-borderGray">
+                                  <GraduationCap className="h-3 w-3 text-text-muted" /> Mentors
+                                </div>
+                                <div className="divide-y divide-borderGray/45">
+                                  {filteredAvailableUsers.filter(u => u.role === "MENTOR").map((u) => (
+                                    <div key={u.id} className="p-2.5 px-3 flex items-center justify-between hover:bg-bgPage/30">
+                                      <div className="min-w-0 pr-2">
+                                        <span className="text-xs font-semibold text-text-primary block truncate">{u.name}</span>
+                                        <span className="text-[10px] text-text-muted block truncate">{u.email}</span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddMemberLocal(u)}
+                                        className="h-6 px-2.5 bg-brand hover:bg-brand-hover text-white text-[10px] font-bold rounded flex items-center gap-0.5 transition-all shrink-0 active:scale-95"
+                                      >
+                                        <Plus className="h-2.5 w-2.5" /> Add
+                                      </button>
                                     </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAddMemberLocal(u)}
-                                      className="h-6 px-2.5 bg-brand hover:bg-brand-hover text-white text-[10px] font-bold rounded flex items-center gap-0.5 transition-all shrink-0 active:scale-95"
-                                    >
-                                      <Plus className="h-2.5 w-2.5" /> Add
-                                    </button>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
 
-                          {/* Available Students Group */}
-                          {filteredAvailableUsers.filter(u => u.role === "STUDENT").length > 0 && (
-                            <div>
-                              <div className="bg-bgPage/40 px-3 py-1.5 text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 border-b border-borderGray">
-                                <Users className="h-3 w-3 text-text-muted" /> Students
-                              </div>
-                              <div className="divide-y divide-borderGray/45">
-                                {filteredAvailableUsers.filter(u => u.role === "STUDENT").map((u) => (
-                                  <div key={u.id} className="p-2.5 px-3 flex items-center justify-between hover:bg-bgPage/30">
-                                    <div className="min-w-0 pr-2">
-                                      <span className="text-xs font-semibold text-text-primary block truncate">{u.name}</span>
-                                      <span className="text-[10px] text-text-muted block truncate">{u.email}</span>
+                            {/* Available Students Group */}
+                            {filteredAvailableUsers.filter(u => u.role === "STUDENT").length > 0 && (
+                              <div>
+                                <div className="bg-bgPage/40 px-3 py-1.5 text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center gap-1 border-b border-borderGray">
+                                  <Users className="h-3 w-3 text-text-muted" /> Students
+                                </div>
+                                <div className="divide-y divide-borderGray/45">
+                                  {filteredAvailableUsers.filter(u => u.role === "STUDENT").map((u) => (
+                                    <div key={u.id} className="p-2.5 px-3 flex items-center justify-between hover:bg-bgPage/30">
+                                      <div className="min-w-0 pr-2">
+                                        <span className="text-xs font-semibold text-text-primary block truncate">{u.name}</span>
+                                        <span className="text-[10px] text-text-muted block truncate">{u.email}</span>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddMemberLocal(u)}
+                                        className="h-6 px-2.5 bg-brand hover:bg-brand-hover text-white text-[10px] font-bold rounded flex items-center gap-0.5 transition-all shrink-0 active:scale-95"
+                                      >
+                                        <Plus className="h-2.5 w-2.5" /> Add
+                                      </button>
                                     </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleAddMemberLocal(u)}
-                                      className="h-6 px-2.5 bg-brand hover:bg-brand-hover text-white text-[10px] font-bold rounded flex items-center gap-0.5 transition-all shrink-0 active:scale-95"
-                                    >
-                                      <Plus className="h-2.5 w-2.5" /> Add
-                                    </button>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </>
-                      )}
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
             <div className="border-t border-borderGray pt-3 flex items-center justify-end gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={onClose}
-                className="h-9 px-4 border border-borderGray rounded-lg text-sm font-medium hover:bg-bgInput transition-colors"
-              >
-                {hasChanges ? "Cancel" : "Close"}
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveChanges}
-                disabled={saving || !hasChanges}
-                className="h-9 px-4 bg-brand hover:bg-brand-hover disabled:bg-borderGray disabled:text-text-muted text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-                Save Changes
-              </button>
+              {canManage ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="h-9 px-4 border border-borderGray rounded-lg text-sm font-medium hover:bg-bgInput transition-colors"
+                  >
+                    {hasChanges ? "Cancel" : "Close"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveChanges}
+                    disabled={saving || !hasChanges}
+                    className="h-9 px-4 bg-brand hover:bg-brand-hover disabled:bg-borderGray disabled:text-text-muted text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                  >
+                    {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Save Changes
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="h-9 px-4 bg-brand hover:bg-brand-hover text-white text-sm font-semibold rounded-lg transition-all"
+                >
+                  Close
+                </button>
+              )}
             </div>
           </>
         )}
@@ -485,7 +503,7 @@ export default function TeamsPage() {
     setLoading(true);
     teamsApi
       .list({
-        companyId: isSuperAdmin ? undefined : user?.companyId || undefined,
+        companyId: canManage ? undefined : user?.companyId || undefined,
         page,
         limit: 12,
       })
@@ -495,7 +513,7 @@ export default function TeamsPage() {
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [user, page, isSuperAdmin]);
+  }, [user, page, canManage]);
 
   React.useEffect(() => {
     load();
@@ -621,7 +639,7 @@ export default function TeamsPage() {
                       onClick={() => setSelectedDetailsTeamId(t.id)}
                       className="text-xs text-brand hover:underline font-semibold"
                     >
-                      Manage members &rarr;
+                      {canManage ? "Manage members" : "View members"} &rarr;
                     </button>
                   </div>
                 </div>
@@ -643,7 +661,7 @@ export default function TeamsPage() {
       {showCreateModal && (
         <CreateTeamModal
           userCompanyId={user?.companyId || null}
-          isSuperAdmin={isSuperAdmin}
+          isSuperAdmin={canManage}
           onClose={() => setShowCreateModal(false)}
           onDone={load}
         />
@@ -662,6 +680,7 @@ export default function TeamsPage() {
           teamId={selectedDetailsTeamId}
           onClose={() => setSelectedDetailsTeamId(null)}
           onRefresh={load}
+          canManage={canManage}
         />
       )}
     </DashboardShell>

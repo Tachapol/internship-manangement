@@ -232,6 +232,9 @@ function SuperAdminDashboard({ data, onRefresh }: { data: SuperAdminStats; onRef
 
 // ─── BD Team Dashboard ────────────────────────────────────────
 function BdTeamDashboard({ data }: { data: BdTeamStats }) {
+  const totalStats = data.attendanceStats.PRESENT + data.attendanceStats.LATE + data.attendanceStats.ABSENT + data.attendanceStats.ON_LEAVE || 1;
+  const getPercentage = (val: number) => Math.round((val / totalStats) * 100);
+
   const [activeTab, setActiveTab] = React.useState<"overview" | "attendance_stats">("overview");
   
   // Monitoring Tab State
@@ -396,7 +399,12 @@ function BdTeamDashboard({ data }: { data: BdTeamStats }) {
               <Card>
                 <CardHeader><h3 className="font-bold text-text-primary text-sm">Attendance Distribution</h3></CardHeader>
                 <CardBody className="space-y-4">
-                  {([["PRESENT", "bg-success", data.attendanceStats.PRESENT], ["LATE", "bg-amber-400", data.attendanceStats.LATE], ["ABSENT", "bg-danger", data.attendanceStats.ABSENT], ["ON LEAVE", "bg-buddy", data.attendanceStats.ON_LEAVE]] as const).map(([label, color, val]) => (
+                  {([
+                    ["PRESENT", "bg-success", getPercentage(data.attendanceStats.PRESENT)],
+                    ["LATE", "bg-amber-400", getPercentage(data.attendanceStats.LATE)],
+                    ["ABSENT", "bg-danger", getPercentage(data.attendanceStats.ABSENT)],
+                    ["ON LEAVE", "bg-buddy", getPercentage(data.attendanceStats.ON_LEAVE)]
+                  ] as const).map(([label, color, val]) => (
                     <div key={label}>
                       <div className="flex justify-between text-[11px] font-bold mb-1.5">
                         <span className="text-text-secondary">{label}</span>

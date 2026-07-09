@@ -242,29 +242,4 @@ export class LeaveRequestsService {
       },
     });
   }
-
-  async cancelRequest(id: string, studentId: string): Promise<LeaveRequest> {
-    const request = await this.prisma.leaveRequest.findUnique({
-      where: { id },
-    });
-
-    if (!request) {
-      throw new NotFoundException('Leave request not found');
-    }
-
-    if (request.studentId !== studentId) {
-      throw new ForbiddenException('You cannot cancel another student\'s request');
-    }
-
-    if (request.status !== LeaveStatus.PENDING) {
-      throw new BadRequestException(`Cannot cancel request that is already ${request.status.toLowerCase()}`);
-    }
-
-    return this.prisma.leaveRequest.update({
-      where: { id },
-      data: {
-        status: LeaveStatus.CANCELLED,
-      },
-    });
-  }
 }

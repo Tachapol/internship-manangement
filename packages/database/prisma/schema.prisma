@@ -377,7 +377,6 @@ enum LeaveStatus {
   PENDING
   APPROVED
   REJECTED
-  CANCELLED
 }
 
 /// Status of a company partnership

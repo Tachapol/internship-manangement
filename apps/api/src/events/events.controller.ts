@@ -22,7 +22,7 @@ export class EventsController {
 
   // POST /events — Create a new event (Staff only)
   @Post()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.BD_TEAM)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.BD_TEAM, UserRole.MENTOR)
   async create(
     @GetUser() creator: { id: string; role: UserRole; companyId?: string },
     @Body()

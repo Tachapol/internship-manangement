@@ -381,7 +381,7 @@ export default function EventsPage() {
   }, [user]);
 
   const canCreate = React.useMemo(() => {
-    return user?.role === "SUPER_ADMIN" || user?.role === "BD_TEAM";
+    return user?.role === "SUPER_ADMIN" || user?.role === "BD_TEAM" || user?.role === "MENTOR";
   }, [user]);
 
   const canEdit = React.useMemo(() => {

@@ -225,12 +225,6 @@ export default function LeaveRequestsPage() {
 
   React.useEffect(() => { load(); }, [load]);
 
-  async function handleCancel(id: string) {
-    if (!confirm("Cancel this leave request?")) return;
-    await leaveRequestsApi.cancel(id);
-    load();
-  }
-
   const filtered = requests.filter(r =>
     !search ||
     r.student?.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -283,7 +277,7 @@ export default function LeaveRequestsPage() {
             className="w-full h-9 pl-9 pr-3 bg-white border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 shadow-[0_1px_2px_rgba(0,0,0,0.04)]" />
         </div>
         <div className="flex gap-2">
-          {(["", "PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const).map(s => (
+          {(["", "PENDING", "APPROVED", "REJECTED"] as const).map(s => (
             <button key={s} onClick={() => { setStatusFilter(s); setPage(1); }}
               className={`h-9 px-3 text-xs font-semibold rounded-lg border transition-all ${statusFilter === s ? "bg-brand text-white border-brand" : "bg-white border-borderGray text-text-muted hover:border-brand hover:text-brand"}`}>
               {s || "All"}
@@ -338,11 +332,7 @@ export default function LeaveRequestsPage() {
                           </button>
                         </div>
                       )}
-                      {isStudent && r.status === "PENDING" && (
-                        <button onClick={() => handleCancel(r.id)} className="h-7 px-2.5 text-xs font-semibold text-danger bg-danger/10 hover:bg-danger/20 rounded-lg transition-colors">
-                          Cancel
-                        </button>
-                      )}
+
                     </div>
                   </div>
                 ))

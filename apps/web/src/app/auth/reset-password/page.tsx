@@ -6,6 +6,18 @@ import { authApi } from "../../../lib/api";
 import { Loader2, ArrowLeft, Lock, CheckCircle2, Eye, EyeOff } from "lucide-react";
 
 export default function ResetPasswordPage() {
+  return (
+    <React.Suspense fallback={
+      <div className="min-h-screen bg-bgPage flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-brand" />
+      </div>
+    }>
+      <ResetPasswordForm />
+    </React.Suspense>
+  );
+}
+
+function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");

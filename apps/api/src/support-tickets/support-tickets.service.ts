@@ -8,7 +8,9 @@ import {
   SupportTicketStatus,
   SupportTicketPriority,
   UserRole,
+  NotificationType,
 } from 'database';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const STAFF_ROLES = [
   UserRole.SUPER_ADMIN,
@@ -22,7 +24,10 @@ function isStaffRole(role: UserRole): boolean {
 
 @Injectable()
 export class SupportTicketsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) { }
 
   // ─── Create Ticket ──────────────────────────────────────────
   async createTicket(
@@ -34,7 +39,7 @@ export class SupportTicketsService {
       priority?: SupportTicketPriority;
     },
   ) {
-    return this.prisma.supportTicket.create({
+    const ticket = await this.prisma.supportTicket.create({
       data: {
         subject: data.subject,
         description: data.description,
@@ -53,6 +58,37 @@ export class SupportTicketsService {
         },
       },
     });
+
+    // Notify all staff (SUPER_ADMIN and BD_TEAM) about the new ticket
+    try {
+      const staff = await this.prisma.user.findMany({
+        where: {
+          role: { in: [UserRole.SUPER_ADMIN, UserRole.BD_TEAM] },
+          status: 'ACTIVE',
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      const notificationTitle = `🎫 New Support Ticket: ${ticket.subject}`;
+      const notificationMessage = `${ticket.author.name} has opened a new support ticket: "${ticket.subject}".`;
+
+      Promise.all(
+        staff.map((s) =>
+          this.notificationsService.createNotification(
+            s.id,
+            notificationTitle,
+            notificationMessage,
+            NotificationType.INFO,
+            { ticketId: ticket.id },
+          ).catch((err) => console.error(`Failed to send ticket notification to staff ${s.id}:`, err)),
+        ),
+      ).catch(console.error);
+    } catch (err) {
+      console.error('Failed to notify staff about new support ticket:', err);
+    }
+
+    return ticket;
   }
 
   // ─── List Tickets ────────────────────────────────────────────
@@ -142,6 +178,9 @@ export class SupportTicketsService {
   ) {
     const ticket = await this.prisma.supportTicket.findUnique({
       where: { id: ticketId },
+      include: {
+        author: { select: { id: true, name: true } },
+      },
     });
 
     if (!ticket || ticket.deletedAt) {
@@ -162,7 +201,7 @@ export class SupportTicketsService {
       });
     }
 
-    return this.prisma.supportTicketReply.create({
+    const reply = await this.prisma.supportTicketReply.create({
       data: {
         message,
         isStaff,
@@ -173,6 +212,61 @@ export class SupportTicketsService {
         author: { select: { id: true, name: true, role: true } },
       },
     });
+
+    // Send notifications for new reply/message
+    try {
+      const snippet = message.length > 60 ? `${message.substring(0, 60)}...` : message;
+      const notificationTitle = `💬 New Reply on Ticket: ${ticket.subject}`;
+
+      if (isStaff) {
+        // Staff replied -> Notify the ticket author (student)
+        await this.notificationsService.createNotification(
+          ticket.authorId,
+          notificationTitle,
+          `Staff has replied to your support ticket: "${snippet}"`,
+          NotificationType.INFO,
+          { ticketId: ticket.id },
+        );
+      } else {
+        // Student/Author replied -> Notify staff
+        if (ticket.assignedToId) {
+          // If assigned to a staff, notify that staff member
+          await this.notificationsService.createNotification(
+            ticket.assignedToId,
+            notificationTitle,
+            `${reply.author.name} replied to ticket: "${snippet}"`,
+            NotificationType.INFO,
+            { ticketId: ticket.id },
+          );
+        } else {
+          // If not assigned, notify all SUPER_ADMIN and BD_TEAM staff
+          const staff = await this.prisma.user.findMany({
+            where: {
+              role: { in: [UserRole.SUPER_ADMIN, UserRole.BD_TEAM] },
+              status: 'ACTIVE',
+              deletedAt: null,
+            },
+            select: { id: true },
+          });
+
+          Promise.all(
+            staff.map((s) =>
+              this.notificationsService.createNotification(
+                s.id,
+                notificationTitle,
+                `${reply.author.name} replied to ticket: "${snippet}"`,
+                NotificationType.INFO,
+                { ticketId: ticket.id },
+              ).catch((err) => console.error(`Failed to send reply notification to staff ${s.id}:`, err)),
+            ),
+          ).catch(console.error);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to send support ticket reply notification:', err);
+    }
+
+    return reply;
   }
 
   // ─── Update Status ────────────────────────────────────────────

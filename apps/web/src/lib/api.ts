@@ -241,8 +241,6 @@ export const leaveRequestsApi = {
     request<import("./types").LeaveRequest>(`/leave-requests/${id}/approve`, { method: "PATCH", body: JSON.stringify({ approverNote }) }),
   reject: (id: string, approverNote: string) =>
     request<import("./types").LeaveRequest>(`/leave-requests/${id}/reject`, { method: "PATCH", body: JSON.stringify({ approverNote }) }),
-  cancel: (id: string) =>
-    request<import("./types").LeaveRequest>(`/leave-requests/${id}/cancel`, { method: "PATCH" }),
 };
 
 // ─── Notifications ────────────────────────────────────────────

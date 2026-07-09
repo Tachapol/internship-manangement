@@ -8,7 +8,7 @@ export type CompanyStatus = "ACTIVE" | "INACTIVE";
 export type AttendanceStatus = "PRESENT" | "LATE" | "ABSENT" | "ON_LEAVE";
 export type TrainingPlanStatus = "ACTIVE" | "COMPLETED" | "ARCHIVED";
 export type LeaveType = "SICK" | "CASUAL" | "ANNUAL" | "OTHER";
-export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+export type LeaveStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type NotificationType = "INFO" | "SUCCESS" | "WARNING" | "ALERT" | "ATTENDANCE" | "LEAVE" | "TRAINING";
 
 export interface PaginatedMeta {

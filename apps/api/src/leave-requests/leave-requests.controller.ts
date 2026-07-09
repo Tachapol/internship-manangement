@@ -85,13 +85,4 @@ export class LeaveRequestsController {
   ) {
     return this.leaveRequestsService.rejectRequest(id, approverId, body.approverNote);
   }
-
-  @Patch(':id/cancel')
-  @Roles(UserRole.STUDENT)
-  async cancel(
-    @Param('id', ParseUUIDPipe) id: string,
-    @GetUser('id') studentId: string,
-  ) {
-    return this.leaveRequestsService.cancelRequest(id, studentId);
-  }
 }

@@ -628,7 +628,8 @@ export default function TrainingPlansPage() {
                       <div className="flex items-center justify-between text-xs font-semibold text-text-secondary">
                         <span>Modules Progress</span>
                         <span>
-                          {completedModules}/{totalModules} ({progressRate}%)
+                          {completedModules}/{totalModules}
+                          {user?.role === "STUDENT" && ` (${progressRate}%)`}
                         </span>
                       </div>
                       <ProgressBar value={progressRate} />

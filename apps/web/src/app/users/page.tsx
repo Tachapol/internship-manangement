@@ -143,6 +143,7 @@ function InviteUserModal({ onClose, onDone }: { onClose: () => void; onDone: () 
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
+  const canInvite = currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "BD_TEAM";
   const [users, setUsers] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -195,11 +196,13 @@ export default function UsersPage() {
         title="Users"
         description="Manage interns, mentors, and team members"
         action={
-          <button
-            onClick={() => setShowInviteModal(true)}
-            className="inline-flex items-center gap-2 h-9 px-4 bg-brand text-white text-sm font-semibold rounded-lg hover:bg-brand-hover transition-all shadow-sm active:scale-[0.98]">
-            <UserPlus className="h-4 w-4" /> Invite User
-          </button>
+          canInvite ? (
+            <button
+              onClick={() => setShowInviteModal(true)}
+              className="inline-flex items-center gap-2 h-9 px-4 bg-brand text-white text-sm font-semibold rounded-lg hover:bg-brand-hover transition-all shadow-sm active:scale-[0.98]">
+              <UserPlus className="h-4 w-4" /> Invite User
+            </button>
+          ) : undefined
         }
       />
 
@@ -335,7 +338,7 @@ export default function UsersPage() {
 
       {!loading && !error && users.length === 0 && (
         <EmptyState icon={Users} title="No users found" description="Invite your first team member to get started."
-          action={<button onClick={() => setShowInviteModal(true)} className="inline-flex items-center gap-2 h-9 px-4 bg-brand text-white text-sm font-semibold rounded-lg hover:bg-brand-hover"><UserPlus className="h-4 w-4" /> Invite User</button>} />
+          action={canInvite ? <button onClick={() => setShowInviteModal(true)} className="inline-flex items-center gap-2 h-9 px-4 bg-brand text-white text-sm font-semibold rounded-lg hover:bg-brand-hover"><UserPlus className="h-4 w-4" /> Invite User</button> : undefined} />
       )}
 
       {showInviteModal && (

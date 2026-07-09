@@ -112,7 +112,6 @@ export function StatusBadge({ status }: { status: string }) {
     PENDING: "bg-amber-100 text-amber-800 border-amber-200",
     APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
     REJECTED: "bg-rose-100 text-rose-800 border-rose-200",
-    CANCELLED: "bg-slate-100 text-slate-700 border-slate-200",
     COMPLETED: "bg-emerald-100 text-emerald-800 border-emerald-200",
     ARCHIVED: "bg-slate-100 text-slate-700 border-slate-200",
   };

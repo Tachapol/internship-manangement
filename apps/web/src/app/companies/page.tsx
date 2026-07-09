@@ -157,7 +157,7 @@ export default function CompaniesPage() {
       {!error && (
         <Card>
           <DataTable
-            headers={["Company", "Status", "Members", "Created", "Actions"]}
+            headers={["Company", "Status", "Students", "Created", "Actions"]}
             loading={loading}
             empty={!loading && companies.length === 0}
           >
@@ -177,7 +177,7 @@ export default function CompaniesPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3.5"><StatusBadge status={c.status} /></td>
-                <td className="px-4 py-3.5 text-sm font-semibold text-text-secondary">{c._count?.users ?? "—"}</td>
+                <td className="px-4 py-3.5 text-sm font-semibold text-text-secondary">{c._count?.users ?? 0}</td>
                 <td className="px-4 py-3.5 text-sm text-text-muted">
                   {formatDate(c.createdAt)}
                 </td>

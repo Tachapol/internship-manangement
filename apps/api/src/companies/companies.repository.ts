@@ -34,7 +34,7 @@ export class CompaniesRepository {
     take?: number;
     where?: Prisma.CompanyWhereInput;
     orderBy?: Prisma.CompanyOrderByWithRelationInput;
-  }): Promise<{ items: Company[]; total: number }> {
+  }): Promise<{ items: any[]; total: number }> {
     const { skip, take, where, orderBy } = params;
     const [items, total] = await this.prisma.$transaction([
       this.prisma.company.findMany({
@@ -42,6 +42,15 @@ export class CompaniesRepository {
         take,
         where,
         orderBy,
+        include: {
+          _count: {
+            select: {
+              users: {
+                where: { role: 'STUDENT', deletedAt: null }
+              }
+            }
+          }
+        }
       }),
       this.prisma.company.count({ where }),
     ]);
