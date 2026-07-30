@@ -34,7 +34,7 @@ export class TrainingPlansController {
   constructor(private readonly trainingPlansService: TrainingPlansService) {}
 
   @Post()
-  @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN, UserRole.BD_TEAM)
   @ApiOperation({ summary: 'Create a new training plan (Mentor/Admin only)' })
   async create(
     @Body() createDto: CreateTrainingPlanDto,
@@ -71,7 +71,7 @@ export class TrainingPlansController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN, UserRole.BD_TEAM)
   @ApiOperation({ summary: 'Update a training plan (Mentor/Admin only)' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -81,7 +81,7 @@ export class TrainingPlansController {
   }
 
   @Delete(':id')
-  @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN, UserRole.BD_TEAM)
   @ApiOperation({ summary: 'Delete a training plan (Mentor/Admin only)' })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.trainingPlansService.deletePlan(id);
@@ -90,7 +90,7 @@ export class TrainingPlansController {
   // ─── Module Management Endpoints ──────────────────────────
 
   @Post('modules')
-  @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN, UserRole.BD_TEAM)
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', {
     limits: { fileSize: 10 * 1024 * 1024 }
@@ -104,7 +104,7 @@ export class TrainingPlansController {
   }
 
   @Patch('modules/:id')
-  @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN, UserRole.BD_TEAM)
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', {
     limits: { fileSize: 10 * 1024 * 1024 }
@@ -119,7 +119,7 @@ export class TrainingPlansController {
   }
 
   @Delete('modules/:id')
-  @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN)
+  @Roles(UserRole.MENTOR, UserRole.SUPER_ADMIN, UserRole.BD_TEAM)
   @ApiOperation({ summary: 'Delete a training plan module (Mentor/Admin only)' })
   async removeModule(@Param('id', ParseUUIDPipe) id: string) {
     return this.trainingPlansService.deleteModule(id);

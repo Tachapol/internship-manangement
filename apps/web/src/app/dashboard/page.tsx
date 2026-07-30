@@ -122,7 +122,7 @@ function AttendanceTrendChart({ history }: { history: StudentStats["attendanceHi
         {/* Dots */}
         {points.map((p, i) => (
           <g key={i} className="group cursor-pointer">
-            <circle cx={p.x} cy={p.y} r="5" fill="white" stroke="var(--brand)" strokeWidth="2.5" className="transition-all duration-150 group-hover:scale-125" />
+            <circle cx={p.x} cy={p.y} r="5" fill="white" stroke="var(--brand)" strokeWidth="2.5" style={{ transformOrigin: `${p.x}px ${p.y}px` }} className="transition-all duration-150 group-hover:scale-125" />
             <title>{`${formatDate(p.date)}: ${p.status} (${formatTime(p.checkIn)})`}</title>
           </g>
         ))}
@@ -250,6 +250,95 @@ function BdTeamDashboard({ data }: { data: BdTeamStats }) {
   const [filterCompanyId, setFilterCompanyId] = React.useState("");
   const [filterMentorId, setFilterMentorId] = React.useState("");
   const [filterStatus, setFilterStatus] = React.useState("");
+
+  // Helper to format Date to YYYY-MM-DD local string
+  const getLocalDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const activePreset = React.useMemo(() => {
+    if (!filterStartDate && !filterEndDate) {
+      return null;
+    }
+    const today = new Date();
+    const todayStr = getLocalDateString(today);
+
+    // Today
+    if (filterStartDate === todayStr && filterEndDate === todayStr) {
+      return "today";
+    }
+
+    // 7 Days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(today.getDate() - 6);
+    if (filterStartDate === getLocalDateString(sevenDaysAgo) && filterEndDate === todayStr) {
+      return "7days";
+    }
+
+    // 30 Days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(today.getDate() - 29);
+    if (filterStartDate === getLocalDateString(thirtyDaysAgo) && filterEndDate === todayStr) {
+      return "30days";
+    }
+
+    // This Month
+    const firstDayStr = getLocalDateString(new Date(today.getFullYear(), today.getMonth(), 1));
+    const lastDayStr = getLocalDateString(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+    if (filterStartDate === firstDayStr && filterEndDate === lastDayStr) {
+      return "month";
+    }
+
+    return null;
+  }, [filterStartDate, filterEndDate]);
+
+  const hasAnyFilterActive = React.useMemo(() => {
+    return (
+      filterStartDate !== "" ||
+      filterEndDate !== "" ||
+      filterCompanyId !== "" ||
+      filterMentorId !== "" ||
+      filterStatus !== "" ||
+      selectedDateFilter !== null ||
+      violationTypeFilter !== "ALL"
+    );
+  }, [filterStartDate, filterEndDate, filterCompanyId, filterMentorId, filterStatus, selectedDateFilter, violationTypeFilter]);
+
+  const handleApplyPreset = (preset: "today" | "7days" | "30days" | "month") => {
+    const today = new Date();
+    let start = new Date();
+    let end = new Date();
+
+    if (preset === "today") {
+      start = today;
+      end = today;
+    } else if (preset === "7days") {
+      start.setDate(today.getDate() - 6);
+      end = today;
+    } else if (preset === "30days") {
+      start.setDate(today.getDate() - 29);
+      end = today;
+    } else if (preset === "month") {
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+      end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    }
+
+    setFilterStartDate(getLocalDateString(start));
+    setFilterEndDate(getLocalDateString(end));
+  };
+
+  const handleClearAllFilters = () => {
+    setFilterStartDate("");
+    setFilterEndDate("");
+    setFilterCompanyId("");
+    setFilterMentorId("");
+    setFilterStatus("");
+    setSelectedDateFilter(null);
+    setViolationTypeFilter("ALL");
+  };
 
   React.useEffect(() => {
     if (activeTab === "attendance_stats") {
@@ -466,8 +555,43 @@ function BdTeamDashboard({ data }: { data: BdTeamStats }) {
       ) : (
         <div className="space-y-6">
           {/* Advanced Filters */}
-          <div className="bg-white border border-borderGray rounded-2xl p-4 shadow-sm grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 items-end">
-            <div>
+          <div className="bg-white border border-borderGray rounded-2xl p-4 shadow-sm space-y-4">
+            {/* Quick Presets & Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-borderGray/50 pb-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-text-muted uppercase tracking-wider mr-1">Quick Range:</span>
+                {(["today", "7days", "30days", "month"] as const).map((preset) => {
+                  const label = preset === "today" ? "Today" : preset === "7days" ? "1 Week" : preset === "30days" ? "1 Month" : "This Month";
+                  return (
+                    <button
+                      key={preset}
+                      onClick={() => handleApplyPreset(preset)}
+                      className={cn(
+                        "h-7 px-3 text-[11px] font-bold rounded-lg border transition-all",
+                        activePreset === preset
+                          ? "bg-brand border-brand text-white shadow-sm"
+                          : "bg-bgInput border-borderGray text-text-secondary hover:bg-white hover:text-brand hover:border-brand/40"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Clear Filter Button */}
+              {hasAnyFilterActive && (
+                <button
+                  onClick={handleClearAllFilters}
+                  className="h-7 px-3 bg-rose-50 text-[11px] font-bold text-rose-600 rounded-lg border border-rose-200 hover:bg-rose-600 hover:text-white transition-all flex items-center gap-1.5"
+                >
+                  <X className="h-3 w-3" /> Clear Filters
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 items-end">
+              <div>
               <label className="text-xs font-bold text-text-primary block mb-1 uppercase tracking-wider">Start Date</label>
               <input
                 type="date"
@@ -524,8 +648,9 @@ function BdTeamDashboard({ data }: { data: BdTeamStats }) {
                 <option value="ABSENT">Absent</option>
                 <option value="ON_LEAVE">On Leave</option>
               </select>
-            </div>
           </div>
+        </div>
+      </div>
 
           {monitoringLoading ? (
             <div className="flex items-center justify-center p-12">
@@ -595,8 +720,18 @@ function BdTeamDashboard({ data }: { data: BdTeamStats }) {
                                     className="cursor-pointer group"
                                     onMouseEnter={() => setHoveredData({ date: p.date, details: `On-Time Rate: ${Math.round(p.rate)}%` })}
                                     onMouseLeave={() => setHoveredData(null)}
-                                    onClick={() => setSelectedDateFilter(p.date)}
+                                    onClick={() => setSelectedDateFilter(selectedDateFilter === p.date ? null : p.date)}
                                   >
+                                    {/* Invisible large hit target for stable hover & click */}
+                                    <rect
+                                      x={p.x - 20}
+                                      y="10"
+                                      width="40"
+                                      height="130"
+                                      fill="transparent"
+                                      className="group-hover:fill-brand/[0.02] transition-colors"
+                                      rx="4"
+                                    />
                                     <circle
                                       cx={p.x}
                                       cy={p.y}
@@ -604,6 +739,7 @@ function BdTeamDashboard({ data }: { data: BdTeamStats }) {
                                       fill={selectedDateFilter === p.date ? "var(--brand)" : "white"}
                                       stroke="var(--brand)"
                                       strokeWidth="2.5"
+                                      style={{ transformOrigin: `${p.x}px ${p.y}px` }}
                                       className="transition-all duration-150 group-hover:scale-125"
                                     />
                                     <text x={p.x} y="155" textAnchor="middle" className="text-[9px] font-bold fill-text-muted uppercase">{p.date}</text>
@@ -660,14 +796,14 @@ function BdTeamDashboard({ data }: { data: BdTeamStats }) {
                                 {/* Background hover highlights */}
                                 <rect x={x - 8} y="10" width="36" height="128" fill={selectedDateFilter === d.date ? "rgba(255, 140, 55, 0.05)" : "transparent"} className="rounded-lg group-hover:fill-bgInput/40 transition-colors" rx="4" />
                                 
-                                {/* Present (Green) */}
-                                {presH > 0 && <rect x={x} y={yPres} width="20" height={presH} fill="#10b981" rx="2" />}
-                                {/* Late (Amber) */}
-                                {lateH > 0 && <rect x={x} y={yLate} width="20" height={lateH} fill="#f59e0b" rx="2" />}
-                                {/* Absent (Red) */}
-                                {absH > 0 && <rect x={x} y={yAbs} width="20" height={absH} fill="#ef4444" rx="2" />}
-                                {/* Leave (Purple) */}
-                                {leaveH > 0 && <rect x={x} y={yLeave} width="20" height={leaveH} fill="#8b5cf6" rx="2" />}
+                                {/* Present (Brand Orange) */}
+                                {presH > 0 && <rect x={x} y={yPres} width="20" height={presH} fill="var(--brand)" rx="2" />}
+                                {/* Late (Brand Light) */}
+                                {lateH > 0 && <rect x={x} y={yLate} width="20" height={lateH} fill="rgba(255, 140, 55, 0.6)" rx="2" />}
+                                {/* Absent (Slate Medium) */}
+                                {absH > 0 && <rect x={x} y={yAbs} width="20" height={absH} fill="#cbd5e1" rx="2" />}
+                                {/* Leave (Slate Light) */}
+                                {leaveH > 0 && <rect x={x} y={yLeave} width="20" height={leaveH} fill="#f1f5f9" rx="2" />}
 
                                 <text x={x + 10} y="150" textAnchor="middle" className="text-[9px] font-bold fill-text-muted uppercase">{d.date}</text>
                               </g>

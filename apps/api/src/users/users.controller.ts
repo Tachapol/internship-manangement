@@ -130,7 +130,7 @@ export class UsersController {
       if (body.role) dataToUpdate.role = body.role;
       if (body.status) dataToUpdate.status = body.status;
       if (body.companyId) dataToUpdate.companyId = body.companyId;
-      if (body.mentorId) dataToUpdate.mentorId = body.mentorId;
+      if (body.mentorId !== undefined) dataToUpdate.mentorId = body.mentorId ? body.mentorId : null;
     }
 
     // Self fields / generic fields

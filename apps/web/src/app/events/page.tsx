@@ -13,13 +13,13 @@ import { formatDate } from "../../lib/utils";
 function EventFormModal({
   onClose,
   onDone,
-  isSuperAdmin,
+  canSelectCompany,
   userCompanyId,
   eventToEdit,
 }: {
   onClose: () => void;
   onDone: () => void;
-  isSuperAdmin: boolean;
+  canSelectCompany: boolean;
   userCompanyId: string | null;
   eventToEdit?: EventDetail | null;
 }) {
@@ -42,7 +42,7 @@ function EventFormModal({
 
   React.useEffect(() => {
     if (audienceType === "COMPANY") {
-      if (isSuperAdmin) {
+      if (canSelectCompany) {
         setLoadingCompanies(true);
         companiesApi
           .list({ limit: 100 })
@@ -58,7 +58,7 @@ function EventFormModal({
         setCompanyId(userCompanyId);
       }
     }
-  }, [audienceType, isSuperAdmin, userCompanyId]);
+  }, [audienceType, canSelectCompany, userCompanyId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,36 +155,34 @@ function EventFormModal({
               <button
                 type="button"
                 onClick={() => setAudienceType("ALL")}
-                className={`flex-1 h-9 rounded-lg text-xs font-bold border transition-all ${
-                  audienceType === "ALL"
-                    ? "bg-brand text-white border-brand"
-                    : "bg-white text-text-secondary border-borderGray hover:bg-bgInput"
-                }`}
+                className={`flex-1 h-9 rounded-lg text-xs font-bold border transition-all ${audienceType === "ALL"
+                  ? "bg-brand text-white border-brand"
+                  : "bg-white text-text-secondary border-borderGray hover:bg-bgInput"
+                  }`}
               >
                 All Students
               </button>
               <button
                 type="button"
                 onClick={() => setAudienceType("COMPANY")}
-                className={`flex-1 h-9 rounded-lg text-xs font-bold border transition-all ${
-                  audienceType === "COMPANY"
-                    ? "bg-brand text-white border-brand"
-                    : "bg-white text-text-secondary border-borderGray hover:bg-bgInput"
-                }`}
+                className={`flex-1 h-9 rounded-lg text-xs font-bold border transition-all ${audienceType === "COMPANY"
+                  ? "bg-brand text-white border-brand"
+                  : "bg-white text-text-secondary border-borderGray hover:bg-bgInput"
+                  }`}
               >
-                Specific Business Group
+                Specific Company
               </button>
             </div>
           </div>
 
           {audienceType === "COMPANY" && (
             <div>
-              <label className="text-xs font-bold text-text-primary block mb-1 uppercase tracking-wider">Select Cohort / Company *</label>
+              <label className="text-xs font-bold text-text-primary block mb-1 uppercase tracking-wider">Select Company *</label>
               {loadingCompanies ? (
                 <div className="h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-xs flex items-center text-text-muted font-semibold">
                   <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> Loading businesses...
                 </div>
-              ) : isSuperAdmin ? (
+              ) : canSelectCompany ? (
                 <select
                   required
                   value={companyId}
@@ -277,7 +275,7 @@ function EventDetailsDrawer({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-7 space-y-5 animate-in fade-in zoom-in-95 duration-150 border border-borderGray flex flex-col max-h-[90vh]">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-borderGray pb-3.5 shrink-0">
           <div>
@@ -302,7 +300,7 @@ function EventDetailsDrawer({
         {/* Content Body */}
         {!loading && event && (
           <div className="space-y-5 overflow-y-auto pr-1 flex-1 py-2 text-sm font-semibold text-text-secondary">
-            
+
             {/* Meta Information Cards */}
             <div className="grid grid-cols-2 gap-4">
               <div className="p-3.5 bg-bgPage border border-borderGray rounded-xl flex items-start gap-2.5">
@@ -521,7 +519,7 @@ export default function EventsPage() {
                 {monthNames[currentMonth]} {currentYear}
               </h3>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <button
                 onClick={handlePrevMonth}
@@ -570,18 +568,16 @@ export default function EventsPage() {
                 return (
                   <div
                     key={idx}
-                    className={`min-h-[110px] bg-white p-2.5 flex flex-col justify-between transition-colors border-t border-l border-borderGray hover:bg-bgPage/35 ${
-                      cell.isCurrentMonth ? "text-text-primary" : "text-text-muted opacity-45 bg-bgInput/10"
-                    }`}
+                    className={`min-h-[110px] bg-white p-2.5 flex flex-col justify-between transition-colors border-t border-l border-borderGray hover:bg-bgPage/35 ${cell.isCurrentMonth ? "text-text-primary" : "text-text-muted opacity-45 bg-bgInput/10"
+                      }`}
                   >
                     {/* Day Number Header */}
                     <div className="flex items-center justify-between shrink-0">
                       <span
-                        className={`text-xs font-black w-6 h-6 flex items-center justify-center rounded-full ${
-                          isToday
-                            ? "bg-brand text-white shadow-sm ring-2 ring-brand/35 animate-pulse"
-                            : "text-text-secondary"
-                        }`}
+                        className={`text-xs font-black w-6 h-6 flex items-center justify-center rounded-full ${isToday
+                          ? "bg-brand text-white shadow-sm ring-2 ring-brand/35 animate-pulse"
+                          : "text-text-secondary"
+                          }`}
                       >
                         {cell.day}
                       </span>
@@ -621,7 +617,7 @@ export default function EventsPage() {
         <EventFormModal
           onClose={() => setShowCreateModal(false)}
           onDone={loadEvents}
-          isSuperAdmin={user?.role === "SUPER_ADMIN"}
+          canSelectCompany={user?.role === "SUPER_ADMIN" || user?.role === "BD_TEAM"}
           userCompanyId={user?.companyId || null}
         />
       )}
@@ -632,7 +628,7 @@ export default function EventsPage() {
           eventToEdit={eventToEdit}
           onClose={() => setEventToEdit(null)}
           onDone={loadEvents}
-          isSuperAdmin={user?.role === "SUPER_ADMIN"}
+          canSelectCompany={user?.role === "SUPER_ADMIN" || user?.role === "BD_TEAM"}
           userCompanyId={user?.companyId || null}
         />
       )}

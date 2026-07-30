@@ -74,6 +74,7 @@ export interface User {
   team?: { id: string; name: string } | null;
   mentorId: string | null;
   mentor?: { id: string; name: string } | null;
+  students?: Array<{ id: string; name: string; email: string }> | null;
   createdAt: string;
   updatedAt: string;
 }

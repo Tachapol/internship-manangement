@@ -148,7 +148,7 @@ export const usersApi = {
   update: (id: string, data: Partial<import("./types").User>) =>
     request<import("./types").User>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   delete: (id: string) => request(`/users/${id}`, { method: "DELETE" }),
-  invite: (data: { email: string; role: string; companyId: string }) =>
+  invite: (data: { email: string; role: string; companyId: string; mentorId?: string }) =>
     request("/users/invite", { method: "POST", body: JSON.stringify(data) }),
 };
 

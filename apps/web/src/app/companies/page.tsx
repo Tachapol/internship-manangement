@@ -84,6 +84,94 @@ function CreateCompanyModal({ onClose, onDone }: { onClose: () => void; onDone: 
   );
 }
 
+function EditCompanyModal({ company, onClose, onDone }: { company: Company; onClose: () => void; onDone: () => void }) {
+  const [formData, setFormData] = React.useState({
+    name: company.name,
+    description: company.description || "",
+    status: company.status,
+  });
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!formData.name.trim()) { setError("Company name is required."); return; }
+    setLoading(true);
+    setError("");
+    try {
+      await companiesApi.update(company.id, {
+        name: formData.name,
+        description: formData.description || undefined,
+        status: formData.status,
+      });
+      onDone();
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || "Failed to update company.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 border border-borderGray">
+        <div>
+          <h3 className="font-bold text-text-primary text-base">Edit Company</h3>
+          <p className="text-xs text-text-muted mt-0.5">Modify details of this partner company.</p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-text-primary block mb-1">Company Name *</label>
+            <input
+              required
+              value={formData.name}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g. DevPlus Co., Ltd."
+              className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-primary block mb-1">Description</label>
+            <textarea
+              value={formData.description}
+              onChange={e => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Enter brief company description..."
+              rows={3}
+              className="w-full px-3 py-1.5 bg-bgInput border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand resize-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-primary block mb-1">Status</label>
+            <select
+              value={formData.status}
+              onChange={e => setFormData({ ...formData, status: e.target.value as "ACTIVE" | "INACTIVE" })}
+              className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand font-semibold"
+            >
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+            </select>
+          </div>
+          {error && <p className="text-xs text-danger font-medium mt-1">{error}</p>}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 h-9 border border-borderGray rounded-lg text-sm font-medium hover:bg-bgInput transition-colors">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 h-9 bg-brand hover:bg-brand-hover text-white text-sm font-semibold rounded-lg transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 
 export default function CompaniesPage() {
   const [companies, setCompanies] = React.useState<Company[]>([]);
@@ -95,6 +183,7 @@ export default function CompaniesPage() {
   const [meta, setMeta] = React.useState({ total: 0, totalPages: 1 });
   const [openMenu, setOpenMenu] = React.useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = React.useState(false);
+  const [editingCompany, setEditingCompany] = React.useState<Company | null>(null);
 
   const load = React.useCallback(() => {
     setLoading(true);
@@ -191,7 +280,8 @@ export default function CompaniesPage() {
                     </button>
                     {openMenu === c.id && (
                       <div className="absolute right-0 top-8 z-20 bg-white border border-borderGray rounded-xl shadow-lg min-w-[140px] py-1 animate-in fade-in zoom-in-95 duration-100">
-                        <button onClick={() => { handleDelete(c.id); setOpenMenu(null); }} className="flex items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger/5 w-full text-left">Delete</button>
+                        <button onClick={() => { setEditingCompany(c); setOpenMenu(null); }} className="flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bgInput w-full text-left">Edit</button>
+                        <button onClick={() => { handleDelete(c.id); setOpenMenu(null); }} className="flex items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger/5 w-full text-left border-t border-borderGray/50">Delete</button>
                       </div>
                     )}
                   </div>
@@ -222,6 +312,10 @@ export default function CompaniesPage() {
 
       {showCreateModal && (
         <CreateCompanyModal onClose={() => setShowCreateModal(false)} onDone={load} />
+      )}
+
+      {editingCompany && (
+        <EditCompanyModal company={editingCompany} onClose={() => setEditingCompany(null)} onDone={load} />
       )}
     </DashboardShell>
   );

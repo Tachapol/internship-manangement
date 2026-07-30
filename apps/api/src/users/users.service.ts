@@ -25,6 +25,10 @@ export class UsersService {
         mentor: {
           select: { id: true, name: true },
         },
+        students: {
+          where: { deletedAt: null },
+          select: { id: true, name: true, email: true },
+        },
       },
     });
   }
@@ -81,6 +85,10 @@ export class UsersService {
           },
           mentor: {
             select: { id: true, name: true },
+          },
+          students: {
+            where: { deletedAt: null },
+            select: { id: true, name: true, email: true },
           },
         },
         orderBy: { name: 'asc' },

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { DashboardShell } from "../../components/layout/dashboard-shell";
 import { trainingPlansApi, teamsApi } from "../../lib/api";
 import type { TrainingPlan, TrainingPlanModule, Team, TrainingPlanStatus } from "../../lib/types";
@@ -128,6 +129,7 @@ function CreatePlanModal({ onClose, onDone, isSuperAdmin, userCompanyId }: { onC
   );
 }
 
+
 function ModuleModal({ planId, module, onClose, onDone }: { planId: string; module?: TrainingPlanModule; onClose: () => void; onDone: () => void }) {
   const [title, setTitle] = React.useState(module?.title || "");
   const [description, setDescription] = React.useState(module?.description || "");
@@ -138,6 +140,11 @@ function ModuleModal({ planId, module, onClose, onDone }: { planId: string; modu
   
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -178,8 +185,10 @@ function ModuleModal({ planId, module, onClose, onDone }: { planId: string; modu
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md">
       <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 border border-borderGray">
         <div>
           <h3 className="font-bold text-text-primary text-base">{module ? "Edit Module" : "Add Training Module"}</h3>
@@ -262,11 +271,24 @@ function ModuleModal({ planId, module, onClose, onDone }: { planId: string; modu
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
-function PlanDetailsModal({ planId, onClose, onRefresh, isMentor, role }: { planId: string; onClose: () => void; onRefresh: () => void; isMentor: boolean; role: string }) {
+function PlanDetailsModal({
+  planId,
+  onClose,
+  onRefresh,
+  isMentor,
+  role,
+}: {
+  planId: string;
+  onClose: () => void;
+  onRefresh: () => void;
+  isMentor: boolean;
+  role: string;
+}) {
   const [plan, setPlan] = React.useState<TrainingPlan | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -274,11 +296,19 @@ function PlanDetailsModal({ planId, onClose, onRefresh, isMentor, role }: { plan
   const [showAddModuleModal, setShowAddModuleModal] = React.useState(false);
   const [selectedEditModule, setSelectedEditModule] = React.useState<TrainingPlanModule | undefined>(undefined);
 
+  const [editTitle, setEditTitle] = React.useState("");
+  const [editDescription, setEditDescription] = React.useState("");
+  const [savingDetails, setSavingDetails] = React.useState(false);
+
   const loadDetails = React.useCallback(() => {
     setLoading(true);
     trainingPlansApi
       .get(planId)
-      .then((res) => setPlan(res))
+      .then((res) => {
+        setPlan(res);
+        setEditTitle(res.title);
+        setEditDescription(res.description || "");
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [planId]);
@@ -309,14 +339,35 @@ function PlanDetailsModal({ planId, onClose, onRefresh, isMentor, role }: { plan
     }
   }
 
+  async function handleSaveDetails() {
+    if (!editTitle.trim()) return;
+    setSavingDetails(true);
+    try {
+      await trainingPlansApi.update(planId, {
+        title: editTitle,
+        description: editDescription || undefined,
+      });
+      loadDetails();
+      onRefresh();
+    } catch (err: any) {
+      alert(err.message || "Failed to update training plan details.");
+    } finally {
+      setSavingDetails(false);
+    }
+  }
+
+  const hasChanges = plan && (editTitle !== plan.title || editDescription !== (plan.description || ""));
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 border border-borderGray flex flex-col max-h-[85vh]">
+      <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 border border-borderGray flex flex-col max-h-[85vh]">
         <div className="flex items-center justify-between border-b border-borderGray pb-3 shrink-0">
           <div>
-            <h3 className="font-bold text-text-primary text-base">{loading ? "Loading Details..." : plan?.title}</h3>
+            <h3 className="font-bold text-text-primary text-base">
+              {loading ? "Loading Details..." : `Manage Plan: ${plan?.title}`}
+            </h3>
             {!loading && plan?.team && (
-              <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1">
+              <p className="text-xs text-text-muted mt-0.5">
                 Assigned Team: <span className="font-semibold text-text-primary">{plan.team.name}</span>
               </p>
             )}
@@ -335,105 +386,154 @@ function PlanDetailsModal({ planId, onClose, onRefresh, isMentor, role }: { plan
         )}
 
         {!loading && plan && (
-          <div className="space-y-4 overflow-y-auto pr-1 flex-1 flex flex-col">
-            {plan.description && <p className="text-sm text-text-secondary leading-relaxed bg-bgPage/40 p-3 rounded-xl border border-borderGray shrink-0">{plan.description}</p>}
+          <div className="flex flex-col md:flex-row gap-6 overflow-hidden flex-1 min-h-0">
+            
+            {/* Left Column: Plan Details Edit / View */}
+            {isMentor ? (
+              <div className="w-full md:w-80 flex flex-col justify-between border-b md:border-b-0 md:border-r border-borderGray pb-4 md:pb-0 md:pr-6 space-y-4 shrink-0">
+                <div className="space-y-4">
+                  <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider font-sans">Plan Information</h4>
+                  <div>
+                    <label className="text-[10px] font-bold text-text-muted block mb-1 uppercase tracking-wider font-sans">Plan Title *</label>
+                    <input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-sm font-semibold text-text-primary focus:outline-none focus:ring-2 focus:ring-brand/30"
+                      placeholder="e.g. Next.js Routing basics"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-text-muted block mb-1 uppercase tracking-wider font-sans">Description</label>
+                    <textarea
+                      value={editDescription}
+                      onChange={(e) => setEditDescription(e.target.value)}
+                      placeholder="Enter details about this plan..."
+                      rows={6}
+                      className="w-full px-3 py-1.5 bg-bgInput border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 resize-none font-medium text-text-secondary"
+                    />
+                  </div>
+                </div>
+                <div className="pt-3 border-t border-borderGray/50 shrink-0">
+                  <button
+                    onClick={handleSaveDetails}
+                    className="w-full h-9 bg-brand hover:bg-brand-hover text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50"
+                    disabled={savingDetails || !editTitle.trim() || !hasChanges}
+                  >
+                    {savingDetails && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-borderGray pb-4 md:pb-0 md:pr-6 space-y-3 shrink-0">
+                <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Plan Information</h4>
+                <div className="bg-bgPage/40 p-4 border border-borderGray rounded-xl space-y-2">
+                  <h5 className="font-bold text-text-primary text-sm leading-tight">{plan.title}</h5>
+                  {plan.description && <p className="text-xs text-text-secondary leading-relaxed">{plan.description}</p>}
+                </div>
+              </div>
+            )}
 
-            <div className="flex items-center justify-between mt-2 shrink-0">
-              <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider">Curriculum Modules</h4>
-              {isMentor && (
-                <button
-                  onClick={() => setShowAddModuleModal(true)}
-                  className="inline-flex items-center gap-1.5 h-8 px-3 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand-hover transition-all"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Add Module
-                </button>
+            {/* Right Column: Modules List & Add Module */}
+            <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+              <div className="flex items-center justify-between mb-3 shrink-0">
+                <h4 className="text-xs font-bold text-text-secondary uppercase tracking-wider font-sans">Curriculum Modules</h4>
+                {isMentor && (
+                  <button
+                    onClick={() => setShowAddModuleModal(true)}
+                    className="inline-flex items-center gap-1.5 h-8 px-3 bg-brand text-white text-xs font-bold rounded-lg hover:bg-brand-hover transition-all"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Module
+                  </button>
+                )}
+              </div>
+
+              {plan.modules.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center py-10 border border-dashed border-borderGray rounded-xl bg-bgPage/20 min-h-[150px]">
+                  <BookOpen className="h-8 w-8 text-text-muted mb-2" />
+                  <p className="text-xs text-text-muted">No modules added yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-3 flex-1 overflow-y-auto pr-1">
+                  {plan.modules.map((m) => (
+                    <div
+                      key={m.id}
+                      className={`p-4 border rounded-xl flex flex-col sm:flex-row sm:items-start gap-4 justify-between transition-colors ${
+                        m.status === "COMPLETED" ? "bg-success/5 border-success/20" : "bg-white border-borderGray hover:border-brand/40"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {role === "STUDENT" ? (
+                          <button
+                            onClick={() => handleToggleProgress(m.id, m.status)}
+                            className="mt-0.5 shrink-0 hover:scale-105 transition-transform"
+                          >
+                            <CheckCircle2 className={`h-5 w-5 ${m.status === "COMPLETED" ? "text-success fill-success/10" : "text-borderGray"}`} />
+                          </button>
+                        ) : (
+                          <CheckCircle2 className={`h-5 w-5 mt-0.5 shrink-0 ${m.status === "COMPLETED" ? "text-success" : "text-borderGray"}`} />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-brand uppercase font-sans">W{m.weekNumber}</span>
+                            <h5 className={`text-sm font-bold leading-tight ${m.status === "COMPLETED" ? "text-text-muted line-through" : "text-text-primary"}`}>
+                              {m.title}
+                            </h5>
+                          </div>
+                          {m.description && <p className="text-xs text-text-muted mt-1 leading-relaxed">{m.description}</p>}
+                          
+                          <div className="flex flex-wrap items-center gap-3 mt-3">
+                            {m.fileUrl && (
+                              <a
+                                href={m.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-brand hover:underline font-semibold bg-brand/5 px-2 py-1 rounded-lg border border-brand/10"
+                              >
+                                <FileText className="h-3 w-3" /> PDF Material
+                              </a>
+                            )}
+                            {m.externalLink && (
+                              <a
+                                href={m.externalLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-buddy hover:underline font-semibold bg-buddy/5 px-2 py-1 rounded-lg border border-buddy/10"
+                              >
+                                <ExternalLink className="h-3 w-3" /> External Link
+                              </a>
+                            )}
+                            {m.dueDate && (
+                              <span className="inline-flex items-center gap-1 text-xs text-text-muted bg-bgInput px-2 py-1 rounded-lg">
+                                <Calendar className="h-3.5 w-3.5" /> Due {formatDate(m.dueDate)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {isMentor && (
+                        <div className="flex gap-2 self-end sm:self-start shrink-0 pt-2 sm:pt-0">
+                          <button
+                            onClick={() => setSelectedEditModule(m)}
+                            className="p-1.5 text-text-muted hover:text-brand hover:bg-brand/5 rounded-lg transition-colors border border-borderGray bg-white"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteModule(m.id)}
+                            className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/5 rounded-lg transition-colors border border-borderGray bg-white"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
-            {plan.modules.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center py-10 border border-dashed border-borderGray rounded-xl bg-bgPage/20 min-h-[150px]">
-                <BookOpen className="h-8 w-8 text-text-muted mb-2" />
-                <p className="text-xs text-text-muted">No modules added yet.</p>
-              </div>
-            ) : (
-              <div className="space-y-3 flex-1 overflow-y-auto pr-1">
-                {plan.modules.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`p-4 border rounded-xl flex flex-col sm:flex-row sm:items-start gap-4 justify-between transition-colors ${
-                      m.status === "COMPLETED" ? "bg-success/5 border-success/20" : "bg-white border-borderGray hover:border-brand/40"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      {role === "STUDENT" ? (
-                        <button
-                          onClick={() => handleToggleProgress(m.id, m.status)}
-                          className="mt-0.5 shrink-0 hover:scale-105 transition-transform"
-                        >
-                          <CheckCircle2 className={`h-5 w-5 ${m.status === "COMPLETED" ? "text-success fill-success/10" : "text-borderGray"}`} />
-                        </button>
-                      ) : (
-                        <CheckCircle2 className={`h-5 w-5 mt-0.5 shrink-0 ${m.status === "COMPLETED" ? "text-success" : "text-borderGray"}`} />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className="text-xs font-bold text-brand uppercase">W{m.weekNumber}</span>
-                          <h5 className={`text-sm font-bold leading-tight ${m.status === "COMPLETED" ? "text-text-muted line-through" : "text-text-primary"}`}>
-                            {m.title}
-                          </h5>
-                        </div>
-                        {m.description && <p className="text-xs text-text-muted mt-1 leading-relaxed">{m.description}</p>}
-                        
-                        <div className="flex flex-wrap items-center gap-3 mt-3">
-                          {m.fileUrl && (
-                            <a
-                              href={m.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs text-brand hover:underline font-semibold bg-brand/5 px-2 py-1 rounded-lg border border-brand/10"
-                            >
-                              <FileText className="h-3 w-3" /> PDF Material
-                            </a>
-                          )}
-                          {m.externalLink && (
-                            <a
-                              href={m.externalLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs text-buddy hover:underline font-semibold bg-buddy/5 px-2 py-1 rounded-lg border border-buddy/10"
-                            >
-                              <ExternalLink className="h-3 w-3" /> External Link
-                            </a>
-                          )}
-                          {m.dueDate && (
-                            <span className="inline-flex items-center gap-1 text-xs text-text-muted bg-bgInput px-2 py-1 rounded-lg">
-                              <Calendar className="h-3.5 w-3.5" /> Due {formatDate(m.dueDate)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {isMentor && (
-                      <div className="flex gap-2 self-end sm:self-start shrink-0 pt-2 sm:pt-0">
-                        <button
-                          onClick={() => setSelectedEditModule(m)}
-                          className="p-1.5 text-text-muted hover:text-brand hover:bg-brand/5 rounded-lg transition-colors border border-borderGray bg-white"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteModule(m.id)}
-                          className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/5 rounded-lg transition-colors border border-borderGray bg-white"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
@@ -471,8 +571,8 @@ export default function TrainingPlansPage() {
   const [showCreateModal, setShowCreateModal] = React.useState(false);
   const [selectedDetailsPlanId, setSelectedDetailsPlanId] = React.useState<string | null>(null);
 
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
-  const isMentor = user?.role === "MENTOR" || user?.role === "SUPER_ADMIN";
+  const isSuperAdmin = user?.role === "SUPER_ADMIN" || user?.role === "BD_TEAM";
+  const isMentor = user?.role === "MENTOR" || user?.role === "SUPER_ADMIN" || user?.role === "BD_TEAM";
 
   const load = React.useCallback(() => {
     setLoading(true);
@@ -603,7 +703,7 @@ export default function TrainingPlansPage() {
                                 }}
                                 className="flex px-3 py-2 text-sm text-text-primary hover:bg-bgInput w-full text-left"
                               >
-                                View Modules
+                                {isMentor ? "View / Edit Plan" : "View Modules"}
                               </button>
                               {isMentor && (
                                 <button
@@ -611,7 +711,7 @@ export default function TrainingPlansPage() {
                                     handleDelete(p.id);
                                     setOpenMenu(null);
                                   }}
-                                  className="flex px-3 py-2 text-sm text-danger hover:bg-danger/5 w-full text-left"
+                                  className="flex px-3 py-2 text-sm text-danger hover:bg-danger/5 w-full text-left border-t border-borderGray/50"
                                 >
                                   Delete Plan
                                 </button>
@@ -624,16 +724,22 @@ export default function TrainingPlansPage() {
                       {p.description && <p className="text-xs text-text-muted line-clamp-2">{p.description}</p>}
                     </div>
 
-                    <div className="pt-3 border-t border-borderGray space-y-2">
-                      <div className="flex items-center justify-between text-xs font-semibold text-text-secondary">
-                        <span>Modules Progress</span>
-                        <span>
-                          {completedModules}/{totalModules}
-                          {user?.role === "STUDENT" && ` (${progressRate}%)`}
-                        </span>
+                    {user?.role === "STUDENT" ? (
+                      <div className="pt-3 border-t border-borderGray space-y-2">
+                        <div className="flex items-center justify-between text-xs font-semibold text-text-secondary">
+                          <span>Modules Progress</span>
+                          <span>
+                            {completedModules}/{totalModules} ({progressRate}%)
+                          </span>
+                        </div>
+                        <ProgressBar value={progressRate} />
                       </div>
-                      <ProgressBar value={progressRate} />
-                    </div>
+                    ) : (
+                      <div className="pt-3 border-t border-borderGray flex items-center justify-between text-xs font-semibold text-text-muted">
+                        <span>Curriculum Duration</span>
+                        <span className="text-text-secondary">{totalModules} {totalModules === 1 ? "module" : "modules"}</span>
+                      </div>
+                    )}
                   </div>
                 </Card>
               );

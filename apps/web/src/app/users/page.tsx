@@ -6,9 +6,10 @@ import { DashboardShell } from "../../components/layout/dashboard-shell";
 import { usersApi, companiesApi, invitationsApi } from "../../lib/api";
 import type { User, UserRole } from "../../lib/types";
 import { PageHeader, StatusBadge, EmptyState, ErrorState, DataTable, Card } from "../../components/ui/shared";
-import { Users, UserPlus, Search, MoreVertical, Mail, Loader2, Link2, Check } from "lucide-react";
+import { Users, UserPlus, Search, MoreVertical, Mail, Loader2, Link2, Check, Upload } from "lucide-react";
 import { formatDate } from "../../lib/utils";
 import { useAuth } from "../../lib/auth-context";
+import { ImportUsersModal } from "../../components/users/ImportUsersModal";
 
 const ROLE_COLORS: Record<UserRole, string> = {
   SUPER_ADMIN: "bg-indigo-100 text-indigo-800 border border-indigo-200",
@@ -154,6 +155,7 @@ export default function UsersPage() {
   const [meta, setMeta] = React.useState({ total: 0, totalPages: 1 });
   const [openMenu, setOpenMenu] = React.useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = React.useState(false);
+  const [showImportModal, setShowImportModal] = React.useState(false);
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
 
   async function handleCopyLink(u: User) {
@@ -197,11 +199,18 @@ export default function UsersPage() {
         description="Manage interns, mentors, and team members"
         action={
           canInvite ? (
-            <button
-              onClick={() => setShowInviteModal(true)}
-              className="inline-flex items-center gap-2 h-9 px-4 bg-brand text-white text-sm font-semibold rounded-lg hover:bg-brand-hover transition-all shadow-sm active:scale-[0.98]">
-              <UserPlus className="h-4 w-4" /> Invite User
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="inline-flex items-center gap-2 h-9 px-4 bg-white border border-borderGray text-text-primary text-sm font-semibold rounded-lg hover:bg-bgInput transition-all shadow-sm active:scale-[0.98]">
+                <Upload className="h-4 w-4" /> Import Users
+              </button>
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className="inline-flex items-center gap-2 h-9 px-4 bg-brand text-white text-sm font-semibold rounded-lg hover:bg-brand-hover transition-all shadow-sm active:scale-[0.98]">
+                <UserPlus className="h-4 w-4" /> Invite User
+              </button>
+            </div>
           ) : undefined
         }
       />
@@ -343,6 +352,10 @@ export default function UsersPage() {
 
       {showInviteModal && (
         <InviteUserModal onClose={() => setShowInviteModal(false)} onDone={load} />
+      )}
+
+      {showImportModal && (
+        <ImportUsersModal onClose={() => setShowImportModal(false)} onDone={load} />
       )}
     </DashboardShell>
   );
