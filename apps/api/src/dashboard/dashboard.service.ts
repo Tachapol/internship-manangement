@@ -4,7 +4,7 @@ import { UserRole } from 'database';
 
 @Injectable()
 export class DashboardService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async getDashboardStats(userId: string, role: UserRole) {
     switch (role) {
@@ -22,24 +22,27 @@ export class DashboardService {
   }
 
   private async getSuperAdminStats() {
-    const totalCompanies = await this.prisma.company.count();
-    const totalStudents = await this.prisma.user.count({ where: { role: UserRole.STUDENT } });
-    const totalMentors = await this.prisma.user.count({ where: { role: UserRole.MENTOR } });
-    const activeStudents = await this.prisma.user.count({
-      where: { role: UserRole.STUDENT, status: 'ACTIVE' },
-    });
+    const [
+      totalCompanies,
+      totalStudents,
+      totalMentors,
+      activeStudents,
+      totalAttendances,
+      activeAttendances,
+      pendingLeaves,
+      totalTrainingPlans,
+    ] = await Promise.all([
+      this.prisma.company.count(),
+      this.prisma.user.count({ where: { role: UserRole.STUDENT } }),
+      this.prisma.user.count({ where: { role: UserRole.MENTOR } }),
+      this.prisma.user.count({ where: { role: UserRole.STUDENT, status: 'ACTIVE' } }),
+      this.prisma.attendance.count(),
+      this.prisma.attendance.count({ where: { status: { in: ['PRESENT', 'LATE'] } } }),
+      this.prisma.leaveRequest.count({ where: { status: 'PENDING' } }),
+      this.prisma.trainingPlan.count(),
+    ]);
 
-    const totalAttendances = await this.prisma.attendance.count();
-    const activeAttendances = await this.prisma.attendance.count({
-      where: { status: { in: ['PRESENT', 'LATE'] } },
-    });
     const attendanceRate = totalAttendances > 0 ? Math.round((activeAttendances / totalAttendances) * 100) : 0;
-
-    const pendingLeaves = await this.prisma.leaveRequest.count({
-      where: { status: 'PENDING' },
-    });
-
-    const totalTrainingPlans = await this.prisma.trainingPlan.count();
 
     return {
       role: UserRole.SUPER_ADMIN,
@@ -54,36 +57,74 @@ export class DashboardService {
   }
 
   private async getBdTeamStats() {
-    const companies = await this.prisma.company.findMany({
-      select: {
-        id: true,
-        name: true,
-        status: true,
-      },
-    });
-
-    const companyOverview = await Promise.all(
-      companies.map(async (c) => {
-        const studentCount = await this.prisma.user.count({
-          where: { companyId: c.id, role: UserRole.STUDENT },
-        });
-        const mentorCount = await this.prisma.user.count({
-          where: { companyId: c.id, role: UserRole.MENTOR },
-        });
-        return {
-          id: c.id,
-          companyId: c.id,
-          name: c.name,
-          status: c.status,
-          studentCount,
-          mentorCount,
-        };
+    const [
+      companies,
+      rawAttendanceStats,
+      mentors,
+      rawLeaveByType,
+      rawLeaveByStatus,
+      totalStudents,
+      totalMentors,
+      totalTrainingPlans,
+    ] = await Promise.all([
+      this.prisma.company.findMany({
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          users: {
+            select: {
+              role: true,
+            },
+          },
+        },
       }),
-    );
+      this.prisma.attendance.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+      this.prisma.user.findMany({
+        where: { role: UserRole.MENTOR },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          students: {
+            select: {
+              id: true,
+              attendances: {
+                select: {
+                  status: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.leaveRequest.groupBy({
+        by: ['type'],
+        _count: { _all: true },
+      }),
+      this.prisma.leaveRequest.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+      this.prisma.user.count({ where: { role: UserRole.STUDENT } }),
+      this.prisma.user.count({ where: { role: UserRole.MENTOR } }),
+      this.prisma.trainingPlan.count(),
+    ]);
 
-    const rawAttendanceStats = await this.prisma.attendance.groupBy({
-      by: ['status'],
-      _count: { _all: true },
+    const companyOverview = companies.map((c) => {
+      const studentCount = c.users.filter((u) => u.role === UserRole.STUDENT).length;
+      const mentorCount = c.users.filter((u) => u.role === UserRole.MENTOR).length;
+      return {
+        id: c.id,
+        companyId: c.id,
+        name: c.name,
+        status: c.status,
+        studentCount,
+        mentorCount,
+      };
     });
 
     const attendanceStats = {
@@ -98,48 +139,28 @@ export class DashboardService {
       }
     });
 
-    const mentors = await this.prisma.user.findMany({
-      where: { role: UserRole.MENTOR },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-      },
-    });
+    const mentorPerformance = mentors.map((m) => {
+      const studentCount = m.students.length;
+      let totalChecks = 0;
+      let positiveChecks = 0;
 
-    const mentorPerformance = await Promise.all(
-      mentors.map(async (m) => {
-        const assignedStudents = await this.prisma.user.findMany({
-          where: { mentorId: m.id },
-          select: { id: true },
-        });
-        const studentIds = assignedStudents.map((s) => s.id);
+      for (const student of m.students) {
+        for (const att of student.attendances) {
+          totalChecks++;
+          if (att.status === 'PRESENT' || att.status === 'LATE') {
+            positiveChecks++;
+          }
+        }
+      }
 
-        const totalChecks = await this.prisma.attendance.count({
-          where: { userId: { in: studentIds } },
-        });
-        const positiveChecks = await this.prisma.attendance.count({
-          where: { userId: { in: studentIds }, status: { in: ['PRESENT', 'LATE'] } },
-        });
-
-        return {
-          id: m.id,
-          mentorId: m.id,
-          name: m.name,
-          email: m.email,
-          studentCount: studentIds.length,
-          checkInRate: totalChecks > 0 ? Math.round((positiveChecks / totalChecks) * 100) : 0,
-        };
-      }),
-    );
-
-    const rawLeaveByType = await this.prisma.leaveRequest.groupBy({
-      by: ['type'],
-      _count: { _all: true },
-    });
-    const rawLeaveByStatus = await this.prisma.leaveRequest.groupBy({
-      by: ['status'],
-      _count: { _all: true },
+      return {
+        id: m.id,
+        mentorId: m.id,
+        name: m.name,
+        email: m.email,
+        studentCount,
+        checkInRate: totalChecks > 0 ? Math.round((positiveChecks / totalChecks) * 100) : 0,
+      };
     });
 
     const leaveStats = {
@@ -158,10 +179,6 @@ export class DashboardService {
         leaveStats.byStatus[item.status as keyof typeof leaveStats.byStatus] = item._count._all;
       }
     });
-
-    const totalStudents = await this.prisma.user.count({ where: { role: UserRole.STUDENT } });
-    const totalMentors = await this.prisma.user.count({ where: { role: UserRole.MENTOR } });
-    const totalTrainingPlans = await this.prisma.trainingPlan.count();
 
     return {
       role: UserRole.BD_TEAM,
@@ -183,26 +200,75 @@ export class DashboardService {
         name: true,
         email: true,
         status: true,
+        teamId: true,
       },
     });
 
     const studentIds = assignedStudents.map((s) => s.id);
+    const teamIds = Array.from(
+      new Set(assignedStudents.map((s) => s.teamId).filter((t): t is string => Boolean(t))),
+    );
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const todayAttendances = await this.prisma.attendance.findMany({
-      where: {
-        userId: { in: studentIds },
-        date: today,
-      },
-      select: {
-        userId: true,
-        status: true,
-        checkIn: true,
-        checkOut: true,
-      },
-    });
+    const [todayAttendances, pendingRequests, totalModulesCount, completedModulesCount] = await Promise.all([
+      studentIds.length > 0
+        ? this.prisma.attendance.findMany({
+            where: {
+              userId: { in: studentIds },
+              date: today,
+            },
+            select: {
+              userId: true,
+              status: true,
+              checkIn: true,
+              checkOut: true,
+            },
+          })
+        : Promise.resolve([]),
+      studentIds.length > 0
+        ? this.prisma.leaveRequest.findMany({
+            where: {
+              studentId: { in: studentIds },
+              status: 'PENDING',
+            },
+            select: {
+              id: true,
+              type: true,
+              startDate: true,
+              endDate: true,
+              reason: true,
+              student: {
+                select: {
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+          })
+        : Promise.resolve([]),
+      teamIds.length > 0
+        ? this.prisma.trainingPlanModule.count({
+            where: {
+              trainingPlan: { teamId: { in: teamIds }, deletedAt: null },
+              deletedAt: null,
+            },
+          })
+        : Promise.resolve(0),
+      teamIds.length > 0 && studentIds.length > 0
+        ? this.prisma.studentModuleProgress.count({
+            where: {
+              studentId: { in: studentIds },
+              status: 'COMPLETED',
+              module: {
+                trainingPlan: { teamId: { in: teamIds }, deletedAt: null },
+                deletedAt: null,
+              },
+            },
+          })
+        : Promise.resolve(0),
+    ]);
 
     const attendanceSummary = {
       checkedIn: todayAttendances.length,
@@ -219,26 +285,6 @@ export class DashboardService {
       }),
     };
 
-    const pendingRequests = await this.prisma.leaveRequest.findMany({
-      where: {
-        studentId: { in: studentIds },
-        status: 'PENDING',
-      },
-      select: {
-        id: true,
-        type: true,
-        startDate: true,
-        endDate: true,
-        reason: true,
-        student: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
-
     const pendingLeaveRequests = pendingRequests.map((r) => ({
       id: r.id,
       type: r.type,
@@ -249,40 +295,11 @@ export class DashboardService {
       studentEmail: r.student.email,
     }));
 
-    let totalModulesCount = 0;
-    let completedModulesCount = 0;
-
-    for (const student of assignedStudents) {
-      const userObj = await this.prisma.user.findUnique({
-        where: { id: student.id },
-        select: { teamId: true },
-      });
-      if (userObj?.teamId) {
-        const totalModules = await this.prisma.trainingPlanModule.count({
-          where: {
-            trainingPlan: { teamId: userObj.teamId, deletedAt: null },
-            deletedAt: null,
-          },
-        });
-        const completedModules = await this.prisma.studentModuleProgress.count({
-          where: {
-            studentId: student.id,
-            status: 'COMPLETED',
-            module: {
-              trainingPlan: { teamId: userObj.teamId, deletedAt: null },
-              deletedAt: null,
-            },
-          },
-        });
-        totalModulesCount += totalModules;
-        completedModulesCount += completedModules;
-      }
-    }
-
+    const totalExpectedModules = totalModulesCount * studentIds.length;
     const trainingPlanProgress = {
-      total: totalModulesCount,
+      total: totalExpectedModules,
       completed: completedModulesCount,
-      rate: totalModulesCount > 0 ? Math.round((completedModulesCount / totalModulesCount) * 100) : 0,
+      rate: totalExpectedModules > 0 ? Math.round((completedModulesCount / totalExpectedModules) * 100) : 0,
     };
 
     return {
@@ -295,23 +312,73 @@ export class DashboardService {
   }
 
   private async getStudentStats(studentId: string) {
-    const attendanceHistory = await this.prisma.attendance.findMany({
-      where: { userId: studentId },
-      orderBy: { date: 'desc' },
-      take: 10,
-      select: {
-        date: true,
-        checkIn: true,
-        checkOut: true,
-        status: true,
-      },
+    const studentUserObj = await this.prisma.user.findUnique({
+      where: { id: studentId },
+      select: { teamId: true },
     });
 
-    const rawStudentAttendanceCounts = await this.prisma.attendance.groupBy({
-      by: ['status'],
-      where: { userId: studentId },
-      _count: { _all: true },
-    });
+    const [
+      attendanceHistory,
+      rawStudentAttendanceCounts,
+      leaveStatus,
+      notifications,
+      modules,
+    ] = await Promise.all([
+      this.prisma.attendance.findMany({
+        where: { userId: studentId },
+        orderBy: { date: 'desc' },
+        take: 10,
+        select: {
+          date: true,
+          checkIn: true,
+          checkOut: true,
+          status: true,
+        },
+      }),
+      this.prisma.attendance.groupBy({
+        by: ['status'],
+        where: { userId: studentId },
+        _count: { _all: true },
+      }),
+      this.prisma.leaveRequest.findMany({
+        where: { studentId },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          type: true,
+          startDate: true,
+          endDate: true,
+          status: true,
+        },
+      }),
+      this.prisma.notification.findMany({
+        where: { userId: studentId, read: false },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          read: true,
+        },
+      }),
+      studentUserObj?.teamId
+        ? this.prisma.trainingPlanModule.findMany({
+            where: {
+              trainingPlan: { teamId: studentUserObj.teamId, deletedAt: null },
+              deletedAt: null,
+            },
+            orderBy: { weekNumber: 'asc' },
+            include: {
+              progresses: {
+                where: { studentId },
+                select: { status: true },
+              },
+            },
+          })
+        : Promise.resolve([]),
+    ]);
 
     const attendanceSummary = {
       PRESENT: 0,
@@ -325,56 +392,15 @@ export class DashboardService {
       }
     });
 
-    const leaveStatus = await this.prisma.leaveRequest.findMany({
-      where: { studentId },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      select: {
-        id: true,
-        type: true,
-        startDate: true,
-        endDate: true,
-        status: true,
-      },
-    });
-
-    const studentUserObj = await this.prisma.user.findUnique({
-      where: { id: studentId },
-      select: { teamId: true },
-    });
-
-    let totalModules = 0;
-    let completedModules = 0;
-    let mappedPlans: any[] = [];
-
-    if (studentUserObj?.teamId) {
-      const modules = await this.prisma.trainingPlanModule.findMany({
-        where: {
-          trainingPlan: { teamId: studentUserObj.teamId, deletedAt: null },
-          deletedAt: null,
-        },
-        orderBy: { weekNumber: 'asc' },
-        include: {
-          progresses: {
-            where: { studentId },
-            select: { status: true },
-          },
-        },
-      });
-
-      totalModules = modules.length;
-      completedModules = modules.filter(
-        (m) => m.progresses[0]?.status === 'COMPLETED',
-      ).length;
-
-      mappedPlans = modules.map((m) => ({
-        id: m.id,
-        week: m.weekNumber,
-        title: m.title,
-        status: m.progresses[0]?.status || 'ACTIVE',
-        dueDate: m.dueDate ? m.dueDate.toISOString() : null,
-      }));
-    }
+    const totalModules = modules.length;
+    const completedModules = modules.filter((m) => m.progresses[0]?.status === 'COMPLETED').length;
+    const mappedPlans = modules.map((m) => ({
+      id: m.id,
+      week: m.weekNumber,
+      title: m.title,
+      status: m.progresses[0]?.status || 'ACTIVE',
+      dueDate: m.dueDate ? m.dueDate.toISOString() : null,
+    }));
 
     const trainingPlanProgress = {
       total: totalModules,
@@ -382,18 +408,6 @@ export class DashboardService {
       rate: totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0,
       plans: mappedPlans,
     };
-
-    const notifications = await this.prisma.notification.findMany({
-      where: { userId: studentId, read: false },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      select: {
-        id: true,
-        title: true,
-        type: true,
-        read: true,
-      },
-    });
 
     const recentNotifications = notifications.map((n) => ({
       id: n.id,
