@@ -471,8 +471,8 @@ function BdTeamDashboard({ data }: { data: BdTeamStats }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-borderGray">
-                    {data.companyOverview.map(c => (
-                      <tr key={c.companyId} className="hover:bg-bgPage/50 transition-colors">
+                    {data.companyOverview.map((c, i) => (
+                      <tr key={c.companyId || (c as any).id || `comp-${i}`} className="hover:bg-bgPage/50 transition-colors">
                         <td className="px-4 py-3 text-sm font-semibold text-text-primary">{c.name}</td>
                         <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                         <td className="px-4 py-3 text-sm font-semibold text-text-secondary">{c.studentCount} students</td>
@@ -530,8 +530,8 @@ function BdTeamDashboard({ data }: { data: BdTeamStats }) {
             <CardHeader><h3 className="font-bold text-text-primary text-sm">Mentor Performance</h3></CardHeader>
             <CardBody>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {data.mentorPerformance.map(m => (
-                  <div key={m.mentorId} className="p-4 border border-borderGray rounded-xl bg-white shadow-sm hover:shadow transition-all space-y-3">
+                {data.mentorPerformance.map((m, i) => (
+                  <div key={m.mentorId || (m as any).id || `mentor-${i}`} className="p-4 border border-borderGray rounded-xl bg-white shadow-sm hover:shadow transition-all space-y-3">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-sm font-semibold text-text-primary">{m.name}</p>
@@ -617,8 +617,8 @@ function BdTeamDashboard({ data }: { data: BdTeamStats }) {
                 className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand/30"
               >
                 <option value="">All Businesses</option>
-                {data.companyOverview.map(c => (
-                  <option key={c.companyId} value={c.companyId}>{c.name}</option>
+                {data.companyOverview.map((c, i) => (
+                  <option key={c.companyId || (c as any).id || `opt-comp-${i}`} value={c.companyId || (c as any).id}>{c.name}</option>
                 ))}
               </select>
             </div>
@@ -630,8 +630,8 @@ function BdTeamDashboard({ data }: { data: BdTeamStats }) {
                 className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand/30"
               >
                 <option value="">All Mentors</option>
-                {data.mentorPerformance.map(m => (
-                  <option key={m.mentorId} value={m.mentorId}>{m.name}</option>
+                {data.mentorPerformance.map((m, i) => (
+                  <option key={m.mentorId || (m as any).id || `opt-men-${i}`} value={m.mentorId || (m as any).id}>{m.name}</option>
                 ))}
               </select>
             </div>

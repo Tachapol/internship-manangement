@@ -72,6 +72,7 @@ export class DashboardService {
         });
         return {
           id: c.id,
+          companyId: c.id,
           name: c.name,
           status: c.status,
           studentCount,
@@ -123,6 +124,7 @@ export class DashboardService {
 
         return {
           id: m.id,
+          mentorId: m.id,
           name: m.name,
           email: m.email,
           studentCount: studentIds.length,
