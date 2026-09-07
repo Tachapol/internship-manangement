@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { DashboardShell } from "../../components/layout/dashboard-shell";
 import { companiesApi } from "../../lib/api";
 import type { Company } from "../../lib/types";
@@ -173,17 +174,28 @@ function EditCompanyModal({ company, onClose, onDone }: { company: Company; onCl
 }
 
 
-export default function CompaniesPage() {
+function CompaniesPageContent() {
+  const searchParams = useSearchParams();
+  const statusParam = searchParams.get("status") || "";
+
   const [companies, setCompanies] = React.useState<Company[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [search, setSearch] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState(statusParam);
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState({ total: 0, totalPages: 1 });
   const [openMenu, setOpenMenu] = React.useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = React.useState(false);
   const [editingCompany, setEditingCompany] = React.useState<Company | null>(null);
+
+  React.useEffect(() => {
+    const s = searchParams.get("status");
+    if (s !== null) {
+      setStatusFilter(s);
+      setPage(1);
+    }
+  }, [searchParams]);
 
   const load = React.useCallback(() => {
     setLoading(true);
@@ -318,5 +330,21 @@ export default function CompaniesPage() {
         <EditCompanyModal company={editingCompany} onClose={() => setEditingCompany(null)} onDone={load} />
       )}
     </DashboardShell>
+  );
+}
+
+export default function CompaniesPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <DashboardShell title="Companies" breadcrumb={[{ label: "Companies" }]}>
+          <div className="flex items-center justify-center p-12">
+            <Loader2 className="h-8 w-8 animate-spin text-brand" />
+          </div>
+        </DashboardShell>
+      }
+    >
+      <CompaniesPageContent />
+    </React.Suspense>
   );
 }

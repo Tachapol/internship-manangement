@@ -5,7 +5,7 @@ import { DashboardShell } from "../../components/layout/dashboard-shell";
 import { useAuth } from "../../lib/auth-context";
 import { authApi, usersApi } from "../../lib/api";
 import { PageHeader, Card, CardHeader, CardBody } from "../../components/ui/shared";
-import { User, Shield, Bell, Database, Globe, Loader2, CheckCircle } from "lucide-react";
+import { User, Shield, Bell, Database, Globe, Loader2, CheckCircle, Eye, EyeOff } from "lucide-react";
 
 function SettingSection({ icon: Icon, title, description, children }: {
   icon: React.ElementType; title: string; description: string; children: React.ReactNode;
@@ -54,6 +54,7 @@ export default function SettingsPage() {
   const [profileError, setProfileError] = React.useState("");
 
   const [passwordData, setPasswordData] = React.useState({ current: "", next: "", confirm: "" });
+  const [showPw, setShowPw] = React.useState({ current: false, next: false, confirm: false });
   const [pwLoading, setPwLoading] = React.useState(false);
   const [pwSuccess, setPwSuccess] = React.useState(false);
   const [pwError, setPwError] = React.useState("");
@@ -162,19 +163,64 @@ export default function SettingsPage() {
           <form onSubmit={handlePasswordChange} className="space-y-3">
             <div>
               <label className="text-xs font-semibold text-text-primary block mb-1.5">Current Password</label>
-              <input type="password" value={passwordData.current} onChange={e => setPasswordData(d => ({ ...d, current: e.target.value }))}
-                className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand" />
+              <div className="relative">
+                <input
+                  type={showPw.current ? "text" : "password"}
+                  value={passwordData.current}
+                  onChange={e => setPasswordData(d => ({ ...d, current: e.target.value }))}
+                  placeholder="Enter current password"
+                  className="w-full h-9 px-3 pr-10 bg-bgInput border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(s => ({ ...s, current: !s.current }))}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                  title={showPw.current ? "Hide password" : "Show password"}
+                >
+                  {showPw.current ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-text-primary block mb-1.5">New Password</label>
-                <input type="password" value={passwordData.next} onChange={e => setPasswordData(d => ({ ...d, next: e.target.value }))}
-                  className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand" />
+                <div className="relative">
+                  <input
+                    type={showPw.next ? "text" : "password"}
+                    value={passwordData.next}
+                    onChange={e => setPasswordData(d => ({ ...d, next: e.target.value }))}
+                    placeholder="At least 8 characters"
+                    className="w-full h-9 px-3 pr-10 bg-bgInput border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw(s => ({ ...s, next: !s.next }))}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                    title={showPw.next ? "Hide password" : "Show password"}
+                  >
+                    {showPw.next ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="text-xs font-semibold text-text-primary block mb-1.5">Confirm Password</label>
-                <input type="password" value={passwordData.confirm} onChange={e => setPasswordData(d => ({ ...d, confirm: e.target.value }))}
-                  className="w-full h-9 px-3 bg-bgInput border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand" />
+                <div className="relative">
+                  <input
+                    type={showPw.confirm ? "text" : "password"}
+                    value={passwordData.confirm}
+                    onChange={e => setPasswordData(d => ({ ...d, confirm: e.target.value }))}
+                    placeholder="Repeat new password"
+                    className="w-full h-9 px-3 pr-10 bg-bgInput border border-borderGray rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw(s => ({ ...s, confirm: !s.confirm }))}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                    title={showPw.confirm ? "Hide password" : "Show password"}
+                  >
+                    {showPw.confirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
             {pwError && <p className="text-xs text-danger">{pwError}</p>}
@@ -235,24 +281,26 @@ export default function SettingsPage() {
           </SettingSection>
         )}
 
-        {/* API Info */}
-        <SettingSection icon={Globe} title="API & Integration" description="Connection details for external integrations">
-          <div className="space-y-3">
-            {[
-              { label: "API Base URL", value: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api" },
-              { label: "Swagger Docs", value: `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api"}/docs` },
-              { label: "WebSocket", value: "ws://localhost:4000/ws" },
-            ].map(item => (
-              <div key={item.label} className="flex items-center justify-between py-2.5 border-b border-borderGray last:border-0">
-                <span className="text-xs font-semibold text-text-muted">{item.label}</span>
-                <a href={item.value} target="_blank" rel="noopener noreferrer"
-                  className="text-xs font-medium text-brand hover:underline font-mono truncate max-w-[240px]">
-                  {item.value}
-                </a>
-              </div>
-            ))}
-          </div>
-        </SettingSection>
+        {/* API Info (SUPER_ADMIN only) */}
+        {user?.role === "SUPER_ADMIN" && (
+          <SettingSection icon={Globe} title="API & Integration" description="Connection details for external integrations">
+            <div className="space-y-3">
+              {[
+                { label: "API Base URL", value: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api" },
+                { label: "Swagger Docs", value: `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api"}/docs` },
+                { label: "WebSocket", value: "ws://localhost:4000/ws" },
+              ].map(item => (
+                <div key={item.label} className="flex items-center justify-between py-2.5 border-b border-borderGray last:border-0">
+                  <span className="text-xs font-semibold text-text-muted">{item.label}</span>
+                  <a href={item.value} target="_blank" rel="noopener noreferrer"
+                    className="text-xs font-medium text-brand hover:underline font-mono truncate max-w-[240px]">
+                    {item.value}
+                  </a>
+                </div>
+              ))}
+            </div>
+          </SettingSection>
+        )}
       </div>
     </DashboardShell>
   );

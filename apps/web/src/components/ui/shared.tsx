@@ -1,4 +1,6 @@
 import * as React from "react";
+import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 interface SkeletonProps {
@@ -135,6 +137,8 @@ export function KpiCard({
   icon: Icon,
   iconBg = "bg-brand/10",
   iconColor = "text-brand",
+  href,
+  onClick,
 }: {
   label: string;
   value: React.ReactNode;
@@ -142,21 +146,78 @@ export function KpiCard({
   icon?: React.ElementType;
   iconBg?: string;
   iconColor?: string;
+  href?: string;
+  onClick?: () => void;
 }) {
-  return (
-    <div className="bg-white border border-borderGray rounded-xl p-5 flex items-center justify-between hover:shadow-sm transition-shadow">
-      <div className="space-y-1.5">
-        <p className="text-[11px] font-bold tracking-wider uppercase text-text-muted">{label}</p>
-        <p className="text-2xl font-bold text-text-primary leading-none">{value}</p>
+  const isInteractive = Boolean(href || onClick);
+
+  const cardContent = (
+    <div
+      className={cn(
+        "bg-white border border-borderGray rounded-xl p-5 flex items-center justify-between transition-all duration-200",
+        isInteractive &&
+          "cursor-pointer hover:border-brand/40 hover:shadow-md hover:-translate-y-0.5 group"
+      )}
+    >
+      <div className="space-y-1.5 flex-1 min-w-0 pr-2">
+        <div className="flex items-center gap-1.5">
+          <p
+            className={cn(
+              "text-[11px] font-bold tracking-wider uppercase text-text-muted transition-colors",
+              isInteractive && "group-hover:text-brand"
+            )}
+          >
+            {label}
+          </p>
+          {isInteractive && (
+            <ArrowUpRight className="h-3.5 w-3.5 text-text-muted opacity-0 group-hover:opacity-100 group-hover:text-brand transition-all -translate-x-1 group-hover:translate-x-0" />
+          )}
+        </div>
+        <p
+          className={cn(
+            "text-2xl font-bold text-text-primary leading-none transition-colors",
+            isInteractive && "group-hover:text-brand"
+          )}
+        >
+          {value}
+        </p>
         {sub && <p className="text-xs text-text-muted">{sub}</p>}
       </div>
       {Icon && (
-        <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center", iconBg)}>
+        <div
+          className={cn(
+            "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200",
+            isInteractive && "group-hover:scale-110",
+            iconBg
+          )}
+        >
           <Icon className={cn("h-5 w-5", iconColor)} />
         </div>
       )}
     </div>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="block rounded-xl focus:outline-none focus:ring-2 focus:ring-brand/30">
+        {cardContent}
+      </Link>
+    );
+  }
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="block w-full text-left rounded-xl focus:outline-none focus:ring-2 focus:ring-brand/30"
+      >
+        {cardContent}
+      </button>
+    );
+  }
+
+  return cardContent;
 }
 
 export function DataTable({

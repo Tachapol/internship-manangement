@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { DashboardShell } from "../../components/layout/dashboard-shell";
 import { usersApi, companiesApi, invitationsApi } from "../../lib/api";
 import type { User, UserRole } from "../../lib/types";
@@ -142,14 +143,17 @@ function InviteUserModal({ onClose, onDone }: { onClose: () => void; onDone: () 
   );
 }
 
-export default function UsersPage() {
+function UsersPageContent() {
   const { user: currentUser } = useAuth();
+  const searchParams = useSearchParams();
+  const roleParam = searchParams.get("role") || "";
+
   const canInvite = currentUser?.role === "SUPER_ADMIN" || currentUser?.role === "BD_TEAM";
   const [users, setUsers] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
   const [search, setSearch] = React.useState("");
-  const [roleFilter, setRoleFilter] = React.useState("");
+  const [roleFilter, setRoleFilter] = React.useState(roleParam);
   const [statusFilter, setStatusFilter] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [meta, setMeta] = React.useState({ total: 0, totalPages: 1 });
@@ -157,6 +161,14 @@ export default function UsersPage() {
   const [showInviteModal, setShowInviteModal] = React.useState(false);
   const [showImportModal, setShowImportModal] = React.useState(false);
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const r = searchParams.get("role");
+    if (r !== null) {
+      setRoleFilter(r);
+      setPage(1);
+    }
+  }, [searchParams]);
 
   async function handleCopyLink(u: User) {
     try {
@@ -358,5 +370,21 @@ export default function UsersPage() {
         <ImportUsersModal onClose={() => setShowImportModal(false)} onDone={load} />
       )}
     </DashboardShell>
+  );
+}
+
+export default function UsersPage() {
+  return (
+    <React.Suspense
+      fallback={
+        <DashboardShell title="Users" breadcrumb={[{ label: "Users" }]}>
+          <div className="flex items-center justify-center p-12">
+            <Loader2 className="h-8 w-8 animate-spin text-brand" />
+          </div>
+        </DashboardShell>
+      }
+    >
+      <UsersPageContent />
+    </React.Suspense>
   );
 }
