@@ -154,9 +154,9 @@ export function KpiCard({
   const cardContent = (
     <div
       className={cn(
-        "bg-white border border-borderGray rounded-xl p-5 flex items-center justify-between transition-all duration-200",
+        "bg-white border border-borderGray rounded-xl p-5 flex items-center justify-between select-none transition-all duration-150",
         isInteractive &&
-          "cursor-pointer hover:border-brand/40 hover:shadow-md hover:-translate-y-0.5 group"
+          "cursor-pointer hover:border-brand/60 hover:shadow-[0_6px_20px_rgba(255,140,55,0.12)] hover:-translate-y-0.5 active:scale-[0.985] active:translate-y-0 active:shadow-none group"
       )}
     >
       <div className="space-y-1.5 flex-1 min-w-0 pr-2">
@@ -170,7 +170,7 @@ export function KpiCard({
             {label}
           </p>
           {isInteractive && (
-            <ArrowUpRight className="h-3.5 w-3.5 text-text-muted opacity-0 group-hover:opacity-100 group-hover:text-brand transition-all -translate-x-1 group-hover:translate-x-0" />
+            <ArrowUpRight className="h-3.5 w-3.5 text-brand opacity-0 group-hover:opacity-100 transition-all -translate-x-1 group-hover:translate-x-0" />
           )}
         </div>
         <p
@@ -186,8 +186,8 @@ export function KpiCard({
       {Icon && (
         <div
           className={cn(
-            "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200",
-            isInteractive && "group-hover:scale-110",
+            "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-150",
+            isInteractive && "group-hover:scale-105",
             iconBg
           )}
         >
@@ -199,7 +199,11 @@ export function KpiCard({
 
   if (href) {
     return (
-      <Link href={href} className="block rounded-xl focus:outline-none focus:ring-2 focus:ring-brand/30">
+      <Link
+        href={href}
+        style={{ WebkitTapHighlightColor: "transparent" }}
+        className="block rounded-xl outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 select-none cursor-pointer"
+      >
         {cardContent}
       </Link>
     );
@@ -210,7 +214,8 @@ export function KpiCard({
       <button
         type="button"
         onClick={onClick}
-        className="block w-full text-left rounded-xl focus:outline-none focus:ring-2 focus:ring-brand/30"
+        style={{ WebkitTapHighlightColor: "transparent" }}
+        className="block w-full text-left rounded-xl outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 select-none cursor-pointer"
       >
         {cardContent}
       </button>
