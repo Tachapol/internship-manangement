@@ -28,6 +28,7 @@ async function request<T>(
     if (typeof window !== "undefined" && !isAuthPath) {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
       document.cookie = "accessToken=; path=/; max-age=0";
       window.location.href = "/auth/login";
     }

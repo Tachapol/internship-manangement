@@ -27,6 +27,7 @@ function setToken(accessToken: string, refreshToken: string) {
 function clearToken() {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
+  localStorage.removeItem("user");
   document.cookie = "accessToken=; path=/; max-age=0";
 }
 
@@ -39,21 +40,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const token = localStorage.getItem("accessToken");
     if (!token) {
       setIsLoading(false);
+      setUser(null);
       return;
     }
 
-    // Real token → validate with API
+    // 1. SWR Cache Hydration: Read immediately from localStorage if available
+    try {
+      const cached = localStorage.getItem("user");
+      if (cached) {
+        setUser(JSON.parse(cached));
+        setIsLoading(false); // Unblock rendering instantly in 0ms!
+      }
+    } catch (e) {
+      console.warn("Failed to parse cached user:", e);
+    }
+
+    // 2. Background Revalidation with API (does not block initial render if cached)
     authApi
       .me()
-      .then((u) => setUser(u))
-      .catch(() => clearToken())
-      .finally(() => setIsLoading(false));
-  }, []);
+      .then((u) => {
+        setUser(u);
+        localStorage.setItem("user", JSON.stringify(u));
+      })
+      .catch((err) => {
+        const isUnauthorized =
+          err?.status === 401 ||
+          err?.statusCode === 401 ||
+          err?.message?.includes("Unauthorized");
+        if (isUnauthorized) {
+          clearToken();
+          setUser(null);
+          router.push("/auth/login");
+        }
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [router]);
 
   /** Real API login */
   const login = async (email: string, password: string) => {
     const res = await authApi.login(email, password);
     setToken(res.accessToken, res.refreshToken);
+    localStorage.setItem("user", JSON.stringify(res.user));
     setUser(res.user);
     router.push("/dashboard");
   };
@@ -70,6 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const u = await authApi.me();
       setUser(u);
+      localStorage.setItem("user", JSON.stringify(u));
     } catch (e) {
       console.error("Failed to refresh user info:", e);
     }

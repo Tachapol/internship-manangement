@@ -1287,8 +1287,21 @@ export default function DashboardPage() {
   const [error, setError] = React.useState("");
   const [mounted, setMounted] = React.useState(false);
 
+  const statsRef = React.useRef<DashboardStats | null>(null);
+  statsRef.current = stats;
+
   React.useEffect(() => {
     setMounted(true);
+    // Instant SWR cache for dashboard stats
+    try {
+      const cached = sessionStorage.getItem("dashboard_stats_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setStats(parsed);
+        statsRef.current = parsed;
+        setLoading(false);
+      }
+    } catch {}
   }, []);
 
   // Redirect to login if not authenticated
@@ -1300,15 +1313,23 @@ export default function DashboardPage() {
 
   const loadStats = React.useCallback(() => {
     if (!user) return;
-    setLoading(true);
+    if (!statsRef.current) {
+      setLoading(true);
+    }
     setError("");
     dashboardApi
       .stats()
       .then((data) => {
         setStats(data);
+        statsRef.current = data;
+        try {
+          sessionStorage.setItem("dashboard_stats_cache", JSON.stringify(data));
+        } catch {}
       })
       .catch((err: any) => {
-        setError(err?.message || "Failed to load dashboard stats.");
+        if (!statsRef.current) {
+          setError(err?.message || "Failed to load dashboard stats.");
+        }
       })
       .finally(() => setLoading(false));
   }, [user]);

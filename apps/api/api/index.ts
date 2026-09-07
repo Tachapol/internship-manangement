@@ -23,7 +23,9 @@ async function getNestApp(): Promise<INestApplication> {
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
   }));
 
-  app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp));
+  app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp), {
+    logger: process.env.NODE_ENV === 'production' ? ['error', 'warn'] : ['log', 'error', 'warn'],
+  });
 
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
@@ -35,17 +37,22 @@ async function getNestApp(): Promise<INestApplication> {
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
   });
 
+  await app.init();
+  return app;
+}
+
+let isSwaggerSetup = false;
+function setupSwagger(nestApp: INestApplication) {
+  if (isSwaggerSetup) return;
   const config = new DocumentBuilder()
     .setTitle('DevPlus API')
     .setDescription('Internship Management System API Documentation')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
-
-  await app.init();
-  return app;
+  const document = SwaggerModule.createDocument(nestApp, config);
+  SwaggerModule.setup('api/docs', nestApp, document);
+  isSwaggerSetup = true;
 }
 
 export default async function handler(req: any, res: any) {
@@ -62,5 +69,12 @@ export default async function handler(req: any, res: any) {
   }
 
   const nestApp = await getNestApp();
+
+  // Lazy-load Swagger only when requesting Swagger documentation endpoint
+  const url = req.url || '';
+  if (url.includes('/docs') || url.includes('/api/docs')) {
+    setupSwagger(nestApp);
+  }
+
   nestApp.getHttpAdapter().getInstance().handle(req, res);
 }
