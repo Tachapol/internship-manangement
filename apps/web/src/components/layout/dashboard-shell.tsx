@@ -12,6 +12,7 @@ import {
   Menu, X, ChevronRight, ShieldCheck, Network, HelpCircle, LifeBuoy, Calendar, UserCheck
 } from "lucide-react";
 import type { UserRole } from "../../lib/types";
+import { EditProfileModal } from "../users/edit-profile-modal";
 
 interface NavItem {
   label: string;
@@ -38,7 +39,15 @@ const NAV_ITEMS: NavItem[] = [
   { label: "FAQ", href: "/faq", icon: HelpCircle, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
 ];
 
-function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+function Sidebar({
+  open,
+  onClose,
+  onEditProfile,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onEditProfile: () => void;
+}) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
@@ -92,18 +101,29 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 
       {/* User Footer */}
       <div className="p-3 border-t border-borderGray flex-shrink-0">
-        <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-bgInput transition-colors">
-          <div className="w-8 h-8 rounded-full bg-brand/15 flex items-center justify-center text-brand text-xs font-bold shrink-0">
-            {user?.name?.charAt(0).toUpperCase() ?? "?"}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-text-primary truncate">{user?.name}</p>
-            <p className="text-xs text-text-muted truncate">{user?.role?.replace("_", " ")}</p>
-          </div>
+        <div className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-bgInput transition-colors group">
           <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onEditProfile();
+            }}
+            title="Click to edit profile"
+            className="flex items-center gap-3 flex-1 min-w-0 text-left p-1.5 rounded-lg hover:bg-black/5 transition-colors focus:outline-none focus:ring-2 focus:ring-brand/30 cursor-pointer"
+          >
+            <div className="w-8 h-8 rounded-full bg-brand/15 flex items-center justify-center text-brand text-xs font-bold shrink-0 group-hover:scale-105 transition-transform">
+              {user?.name?.charAt(0).toUpperCase() ?? "?"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-text-primary truncate group-hover:text-brand transition-colors">{user?.name}</p>
+              <p className="text-xs text-text-muted truncate">{user?.role?.replace("_", " ")}</p>
+            </div>
+          </button>
+          <button
+            type="button"
             onClick={() => setShowLogoutConfirm(true)}
             title="Logout"
-            className="p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors"
+            className="p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors shrink-0 cursor-pointer"
           >
             <LogOut className="h-4 w-4" />
           </button>
@@ -179,10 +199,12 @@ function Header({
   onMenuClick,
   title,
   breadcrumb,
+  onEditProfile,
 }: {
   onMenuClick: () => void;
   title: string;
   breadcrumb?: { label: string; href?: string }[];
+  onEditProfile: () => void;
 }) {
   const { user } = useAuth();
   const [notifications, setNotifications] = React.useState<any[]>([]);
@@ -346,12 +368,17 @@ function Header({
           )}
         </div>
         <div className="h-5 w-px bg-borderGray" />
-        <Link href="/settings" className="flex items-center gap-2 p-1.5 hover:bg-bgInput rounded-lg transition-colors">
-          <div className="w-7 h-7 rounded-full bg-brand/15 flex items-center justify-center text-brand text-xs font-bold">
+        <button
+          type="button"
+          onClick={onEditProfile}
+          title="Click to edit profile"
+          className="flex items-center gap-2 p-1.5 hover:bg-bgInput rounded-lg transition-colors cursor-pointer group"
+        >
+          <div className="w-7 h-7 rounded-full bg-brand/15 flex items-center justify-center text-brand text-xs font-bold group-hover:scale-105 transition-transform">
             {user?.name?.charAt(0).toUpperCase() ?? "?"}
           </div>
-          <span className="text-xs font-semibold text-text-primary hidden sm:block">{user?.name}</span>
-        </Link>
+          <span className="text-xs font-semibold text-text-primary hidden sm:block group-hover:text-brand transition-colors">{user?.name}</span>
+        </button>
       </div>
     </header>
   );
@@ -365,20 +392,31 @@ interface DashboardLayoutProps {
 
 export function DashboardShell({ children, title, breadcrumb }: DashboardLayoutProps) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [showProfileModal, setShowProfileModal] = React.useState(false);
 
   return (
     <div className="min-h-screen bg-bgPage flex">
-      <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <Sidebar
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        onEditProfile={() => setShowProfileModal(true)}
+      />
       <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
         <Header
           onMenuClick={() => setMobileOpen(true)}
           title={title}
           breadcrumb={breadcrumb}
+          onEditProfile={() => setShowProfileModal(true)}
         />
         <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-[1400px] w-full mx-auto">
           {children}
         </main>
       </div>
+
+      <EditProfileModal
+        open={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
     </div>
   );
 }
