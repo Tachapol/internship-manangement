@@ -88,16 +88,28 @@ export default function SettingsPage() {
 
   async function handlePasswordChange(e: React.FormEvent) {
     e.preventDefault();
-    if (passwordData.next !== passwordData.confirm) { setPwError("Passwords do not match"); return; }
-    if (passwordData.next.length < 8) { setPwError("Password must be at least 8 characters"); return; }
-    setPwLoading(true); setPwError(""); setPwSuccess(false);
+    if (!passwordData.current) {
+      setPwError("Current password is required");
+      return;
+    }
+    if (passwordData.next !== passwordData.confirm) {
+      setPwError("Passwords do not match");
+      return;
+    }
+    if (passwordData.next.length < 8) {
+      setPwError("Password must be at least 8 characters");
+      return;
+    }
+    setPwLoading(true);
+    setPwError("");
+    setPwSuccess(false);
     try {
-      // In real implementation: call change-password endpoint
-      await new Promise(r => setTimeout(r, 1000));
+      await authApi.changePassword(passwordData.current, passwordData.next);
       setPwSuccess(true);
       setPasswordData({ current: "", next: "", confirm: "" });
-    } catch {
-      setPwError("Failed to update password");
+      setShowPw({ current: false, next: false, confirm: false });
+    } catch (err: any) {
+      setPwError(err?.message || "Failed to update password");
     } finally {
       setPwLoading(false);
     }

@@ -35,7 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Support", href: "/support", icon: LifeBuoy, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
   { label: "Support Tickets", href: "/support-tickets", icon: ShieldCheck, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR"] },
   { label: "Audit Logs", href: "/audit-logs", icon: ShieldCheck, roles: ["SUPER_ADMIN"] },
-  { label: "Settings", href: "/settings", icon: Settings, roles: ["SUPER_ADMIN"] },
+  { label: "Settings", href: "/settings", icon: Settings, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
   { label: "FAQ", href: "/faq", icon: HelpCircle, roles: ["SUPER_ADMIN", "BD_TEAM", "MENTOR", "STUDENT"] },
 ];
 

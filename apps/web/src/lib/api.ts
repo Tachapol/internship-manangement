@@ -28,6 +28,7 @@ async function request<T>(
     if (typeof window !== "undefined" && !isAuthPath) {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
+      document.cookie = "accessToken=; path=/; max-age=0";
       window.location.href = "/auth/login";
     }
     const err = await res.json().catch(() => ({ message: "Unauthorized" }));
@@ -119,6 +120,11 @@ export const authApi = {
     request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
   resetPassword: (token: string, password: string, confirmPassword: string) =>
     request("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password, confirmPassword }) }),
+  changePassword: (currentPassword: string, nextPassword: string) =>
+    request<{ success: boolean; message: string }>("/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword: nextPassword }),
+    }),
 };
 
 // ─── Companies ─────────────────────────────────────────────────
