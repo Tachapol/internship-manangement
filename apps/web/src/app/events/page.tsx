@@ -6,8 +6,62 @@ import { eventsApi, companiesApi, type EventDetail } from "../../lib/api";
 import type { Company } from "../../lib/types";
 import { useAuth } from "../../lib/auth-context";
 import { PageHeader, Card, CardBody, CardHeader, EmptyState, ErrorState } from "../../components/ui/shared";
-import { Calendar, MapPin, Users, Plus, X, Loader2, Info, Building2, CheckCircle2, ChevronRight } from "lucide-react";
-import { formatDate } from "../../lib/utils";
+import { Calendar, MapPin, Users, Plus, X, Loader2, Info, Building2, CheckCircle2, ChevronRight, Clock } from "lucide-react";
+import { formatDate, formatDateTime } from "../../lib/utils";
+
+/**
+ * Safely parses "YYYY-MM-DDTHH:mm" into a local Date object across all browsers (including Safari on macOS)
+ */
+function parseLocalDateTime(localStr: string): Date {
+  if (!localStr) return new Date();
+  const [datePart, timePart] = localStr.split("T");
+  if (!datePart) return new Date(localStr);
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hours, minutes] = (timePart || "00:00").split(":").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1, hours || 0, minutes || 0);
+}
+
+function formatDateForInput(dateStr: string): string {
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return "";
+  const pad = (num: number) => String(num).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function formatEventTime(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return "";
+  }
+}
+
+function formatEventDateTime(dateStr: string): string {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const dateFormatted = d.toLocaleDateString("en-GB", {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    const timeFormatted = d.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    return `${dateFormatted} · ${timeFormatted}`;
+  } catch {
+    return dateStr;
+  }
+}
 
 // ─── Event Form Modal ───────────────────────────────────────
 function EventFormModal({
@@ -23,12 +77,6 @@ function EventFormModal({
   userCompanyId: string | null;
   eventToEdit?: EventDetail | null;
 }) {
-  const formatDateForInput = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const pad = (num: number) => String(num).padStart(2, "0");
-    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-  };
-
   const [name, setName] = React.useState(eventToEdit?.name || "");
   const [dateTime, setDateTime] = React.useState(eventToEdit ? formatDateForInput(eventToEdit.dateTime) : "");
   const [location, setLocation] = React.useState(eventToEdit?.location || "");
@@ -71,10 +119,18 @@ function EventFormModal({
     setError("");
 
     try {
+      const eventDate = parseLocalDateTime(dateTime);
+      if (isNaN(eventDate.getTime())) {
+        setLoading(false);
+        return setError("Invalid event date and time.");
+      }
+
+      const isoDate = eventDate.toISOString();
+
       if (eventToEdit) {
         await eventsApi.update(eventToEdit.id, {
           name,
-          dateTime: new Date(dateTime).toISOString(),
+          dateTime: isoDate,
           location,
           description,
           audienceType,
@@ -83,7 +139,7 @@ function EventFormModal({
       } else {
         await eventsApi.create({
           name,
-          dateTime: new Date(dateTime).toISOString(),
+          dateTime: isoDate,
           location,
           description,
           audienceType,
@@ -307,7 +363,7 @@ function EventDetailsDrawer({
                 <Calendar className="h-5 w-5 text-brand mt-0.5 shrink-0" />
                 <div>
                   <p className="text-xs text-text-muted font-bold uppercase tracking-wider">Date & Time</p>
-                  <p className="font-extrabold text-text-primary mt-1">{formatDate(event.dateTime)}</p>
+                  <p className="font-extrabold text-text-primary mt-1">{formatEventDateTime(event.dateTime)}</p>
                 </div>
               </div>
               <div className="p-3.5 bg-bgPage border border-borderGray rounded-xl flex items-start gap-2.5">
@@ -590,25 +646,95 @@ export default function EventsPage() {
 
                     {/* Events List inside Day Cell */}
                     <div className="mt-2.5 space-y-1 flex-1 overflow-y-auto max-h-[70px] scrollbar-thin">
-                      {dayEvents.map((event) => (
-                        <button
-                          key={event.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedEventId(event.id);
-                          }}
-                          title={event.name}
-                          className="w-full text-left p-1 px-1.5 rounded bg-brand/5 hover:bg-brand/10 border border-brand/10 text-[10px] font-bold text-brand truncate block transition-all hover:scale-[0.98]"
-                        >
-                          {event.name}
-                        </button>
-                      ))}
+                      {dayEvents.map((event) => {
+                        const time = formatEventTime(event.dateTime);
+                        return (
+                          <button
+                            key={event.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEventId(event.id);
+                            }}
+                            title={`${time ? `${time} - ` : ""}${event.name} (${event.location})`}
+                            className="w-full text-left p-1 px-1.5 rounded bg-brand/5 hover:bg-brand/10 border border-brand/10 text-[10px] font-bold text-brand truncate flex items-center gap-1 transition-all hover:scale-[0.98]"
+                          >
+                            {time && (
+                              <span className="font-extrabold text-[9px] bg-brand/15 px-1 py-0.2 rounded text-brand shrink-0">
+                                {time}
+                              </span>
+                            )}
+                            <span className="truncate">{event.name}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 );
               })}
             </div>
           </Card>
+
+          {/* Month Events Schedule Overview */}
+          <div className="bg-white border border-borderGray rounded-2xl p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-borderGray pb-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-brand" />
+                <h4 className="font-bold text-text-primary text-sm">
+                  Schedule Overview · {monthNames[currentMonth]} {currentYear}
+                </h4>
+              </div>
+              <span className="text-xs text-text-muted font-semibold">
+                {events.filter((e) => {
+                  const d = new Date(e.dateTime);
+                  return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+                }).length} Events Scheduled
+              </span>
+            </div>
+
+            {events.filter((e) => {
+              const d = new Date(e.dateTime);
+              return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+            }).length === 0 ? (
+              <p className="text-xs text-text-muted text-center py-6">
+                No events scheduled for this month. Click "Create new Event" above to schedule a session.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {events
+                  .filter((e) => {
+                    const d = new Date(e.dateTime);
+                    return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+                  })
+                  .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime())
+                  .map((event) => (
+                    <div
+                      key={event.id}
+                      onClick={() => setSelectedEventId(event.id)}
+                      className="p-3.5 border border-borderGray rounded-xl hover:border-brand/40 hover:bg-brand/[0.02] cursor-pointer transition-all space-y-2 group"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <h5 className="text-xs font-bold text-text-primary group-hover:text-brand transition-colors line-clamp-1">
+                          {event.name}
+                        </h5>
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-brand/10 text-brand shrink-0">
+                          {event.audienceType === "ALL" ? "All" : "Targeted"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[11px] text-brand font-bold">
+                        <Clock className="h-3.5 w-3.5 text-brand shrink-0" />
+                        <span>{formatEventDateTime(event.dateTime)}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[11px] text-text-muted font-medium">
+                        <MapPin className="h-3.5 w-3.5 text-text-muted shrink-0" />
+                        <span className="truncate">{event.location}</span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

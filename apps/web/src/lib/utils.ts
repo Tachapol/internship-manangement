@@ -14,11 +14,13 @@ export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return "—";
   try {
     let date: Date;
+    let isDateOnly = false;
     if (typeof value === "string") {
       // If it's a date-only string (YYYY-MM-DD), parse as UTC to avoid TZ shift
       if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
         const [y, m, d] = value.split("-").map(Number);
         date = new Date(Date.UTC(y, m - 1, d));
+        isDateOnly = true;
       } else {
         date = new Date(value);
       }
@@ -30,7 +32,7 @@ export function formatDate(value: string | Date | null | undefined): string {
       day: "2-digit",
       month: "short",
       year: "numeric",
-      timeZone: "UTC",
+      ...(isDateOnly ? { timeZone: "UTC" } : {}),
     });
   } catch {
     return String(value);
