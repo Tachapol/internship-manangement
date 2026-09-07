@@ -197,15 +197,37 @@ function CompaniesPageContent() {
     }
   }, [searchParams]);
 
+  const cacheKey = `companies_cache_${search}_${statusFilter}_${page}`;
+
+  React.useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setCompanies(parsed.data || []);
+        setMeta(parsed.meta || { total: 0, totalPages: 1 });
+        setLoading(false);
+      }
+    } catch {}
+  }, [cacheKey]);
+
   const load = React.useCallback(() => {
-    setLoading(true);
+    setLoading((prev) => (companies.length > 0 ? false : true));
     setError("");
     companiesApi
       .list({ search: search || undefined, status: statusFilter || undefined, page, limit: 12 })
-      .then((res) => { setCompanies(res.data); setMeta({ total: res.meta.total, totalPages: res.meta.totalPages }); })
-      .catch((e) => setError(e.message))
+      .then((res) => {
+        setCompanies(res.data);
+        setMeta({ total: res.meta.total, totalPages: res.meta.totalPages });
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(res));
+        } catch {}
+      })
+      .catch((e) => {
+        if (companies.length === 0) setError(e.message);
+      })
       .finally(() => setLoading(false));
-  }, [search, statusFilter, page]);
+  }, [search, statusFilter, page, cacheKey, companies.length]);
 
   React.useEffect(() => { load(); }, [load]);
 

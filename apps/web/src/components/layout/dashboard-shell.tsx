@@ -195,6 +195,11 @@ function Sidebar({
   );
 }
 
+// Module-level notifications cache to avoid refetching on every page navigation
+let cachedNotifications: any[] = [];
+let cachedUnreadCount = 0;
+let lastNotificationsFetchTime = 0;
+
 function Header({
   onMenuClick,
   title,
@@ -207,17 +212,26 @@ function Header({
   onEditProfile: () => void;
 }) {
   const { user } = useAuth();
-  const [notifications, setNotifications] = React.useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = React.useState(0);
+  const [notifications, setNotifications] = React.useState<any[]>(cachedNotifications);
+  const [unreadCount, setUnreadCount] = React.useState(cachedUnreadCount);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = React.useState(false);
 
-  const fetchNotifications = React.useCallback(() => {
+  const fetchNotifications = React.useCallback((force = false) => {
     if (!user) return;
+    const now = Date.now();
+    if (!force && now - lastNotificationsFetchTime < 25000) {
+      return;
+    }
+    lastNotificationsFetchTime = now;
     notificationsApi
       .list({ limit: 5 })
       .then((res) => {
-        setNotifications(res.data || []);
-        setUnreadCount(res.unreadCount || 0);
+        const items = res.data || [];
+        const count = res.unreadCount || 0;
+        cachedNotifications = items;
+        cachedUnreadCount = count;
+        setNotifications(items);
+        setUnreadCount(count);
       })
       .catch((err) => {
         console.error("Failed to fetch notifications:", err);
@@ -226,7 +240,7 @@ function Header({
 
   React.useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 15000); // Check every 15s
+    const interval = setInterval(() => fetchNotifications(true), 25000); // Poll every 25s
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 
@@ -234,7 +248,7 @@ function Header({
     e.stopPropagation();
     try {
       await notificationsApi.markAllRead();
-      fetchNotifications();
+      fetchNotifications(true);
     } catch (err) {
       console.error(err);
     }
@@ -243,7 +257,7 @@ function Header({
   const handleMarkRead = async (id: string) => {
     try {
       await notificationsApi.markRead(id);
-      fetchNotifications();
+      fetchNotifications(true);
     } catch (err) {
       console.error(err);
     }

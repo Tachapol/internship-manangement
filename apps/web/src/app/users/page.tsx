@@ -186,15 +186,37 @@ function UsersPageContent() {
     }
   }
 
+  const cacheKey = `users_cache_${search}_${roleFilter}_${statusFilter}_${page}`;
+
+  React.useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setUsers(parsed.data || []);
+        setMeta(parsed.meta || { total: 0, totalPages: 1 });
+        setLoading(false);
+      }
+    } catch {}
+  }, [cacheKey]);
+
   const load = React.useCallback(() => {
-    setLoading(true);
+    setLoading((prev) => (users.length > 0 ? false : true));
     setError("");
     usersApi
       .list({ search: search || undefined, role: roleFilter || undefined, status: statusFilter || undefined, page, limit: 15 })
-      .then((res) => { setUsers(res.data); setMeta({ total: res.meta.total, totalPages: res.meta.totalPages }); })
-      .catch((e) => setError(e.message))
+      .then((res) => {
+        setUsers(res.data);
+        setMeta({ total: res.meta.total, totalPages: res.meta.totalPages });
+        try {
+          sessionStorage.setItem(cacheKey, JSON.stringify(res));
+        } catch {}
+      })
+      .catch((e) => {
+        if (users.length === 0) setError(e.message);
+      })
       .finally(() => setLoading(false));
-  }, [search, roleFilter, statusFilter, page]);
+  }, [search, roleFilter, statusFilter, page, cacheKey, users.length]);
 
   React.useEffect(() => { load(); }, [load]);
 
